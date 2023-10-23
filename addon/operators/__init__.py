@@ -5,10 +5,19 @@ from .decimate_ratio_75 import Anim_OP_Decimate
 from .Delete_duplicate_mats import SIMPLE_AH_MaterialCleanUp
 from .animation_bake import bakeprops
 from .add_shoulder_lock import Anim_AH_Shoulder_lock
+from .Add_copyT_and_reverse import Anim_H_Copy_T
+from .Origin_XY import Anim_H_CenterObjectsXY
+from .MakeCollection import Anim_H_MoveToNewCollection
 
 
-
-classes = (bakeprops,Anim_AH_Shoulder_lock, AH_Animation_bake, Anim_OP_Decimate, SIMPLE_AH_MaterialCleanUp,
+classes = (bakeprops,
+           Anim_AH_Shoulder_lock,
+           AH_Animation_bake,
+           Anim_OP_Decimate,
+           SIMPLE_AH_MaterialCleanUp,
+           Anim_H_Copy_T,
+           Anim_H_CenterObjectsXY,
+           Anim_H_MoveToNewCollection,
            
            )
 

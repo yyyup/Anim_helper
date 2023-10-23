@@ -1,7 +1,7 @@
 import bpy
 
 class SIMPLE_AH_MaterialCleanUp(bpy.types.Operator):
-    """Remove materials that have a dot in their name and replace them with another version"""
+    """Remove duplicate materials that have a dot in their name and replace them with the original Material"""
     bl_idname = "object.material_cleanup"
     bl_label = "Material CleanUp"
     bl_options = {'REGISTER', 'UNDO'}

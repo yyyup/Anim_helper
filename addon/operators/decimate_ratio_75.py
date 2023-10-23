@@ -4,8 +4,10 @@ bpy.props.FloatProperty(name= "Factor", default=0.75, min=0, max=1)
 
 class Anim_OP_Decimate(bpy.types.Operator):
     """Decimate baked keys by a ratio of 75%"""
-    bl_idname = "anim.decimate_keys_75"
+    
+    bl_idname = "anim.decimate_keys"
     bl_label = "Decimate Keys"
+    bl_description = "Decimate baked keys"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):

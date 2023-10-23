@@ -16,6 +16,10 @@ class bakeprops(bpy.types.PropertyGroup):
 
 
 class AH_Animation_bake(bpy.types.Operator):
+    """Bake animations for selected objects and bones"""
+    
+    
+    
     bl_idname = "anim_helper.bake_animation"
     bl_label = "ezbake"
     bl_description = "Bake animations for selected objects and bones"

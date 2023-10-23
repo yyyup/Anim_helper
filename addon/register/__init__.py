@@ -6,13 +6,15 @@
 
 def register_addon():
 
-    #menus
-    from ..ui import register_panels
-    register_panels()
-
+   
     #operators
     from ..operators import register_operators
     register_operators()
+
+    #menus
+    from ..ui import register_panels
+    register_panels()
+   
 
  
 
@@ -24,9 +26,10 @@ def unregister_addon():
     unregister_panels()
 
 
-
-    #operators
+     #operators
     from ..operators import unregister_operators
     unregister_operators()
 
+
+    
     

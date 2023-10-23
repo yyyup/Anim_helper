@@ -2,10 +2,12 @@ import bpy
 
 # get the panels you want
 from .panel1 import Panel1
+from .panel2 import Panel2
 
 
 # add them to classes array
 classes = (
+    Panel2,
     Panel1,
 )
 
