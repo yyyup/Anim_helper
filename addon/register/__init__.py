@@ -2,7 +2,11 @@ import bpy
 
 def register_addon():
     """Register all components of the addon"""
-    # Register properties first
+    # Register icons first
+    from ..icons import register_icons
+    register_icons()
+    
+    # Register properties
     from ..properties import register_properties
     register_properties()
     
@@ -24,6 +28,10 @@ def unregister_addon():
     from ..operators import unregister_operators
     unregister_operators()
     
-    # Unregister properties last
+    # Unregister properties
     from ..properties import unregister_properties
     unregister_properties()
+    
+    # Unregister icons last
+    from ..icons import unregister_icons
+    unregister_icons()

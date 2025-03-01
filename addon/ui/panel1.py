@@ -9,6 +9,9 @@ from ..operators.Add_copyT_and_reverse import AH_CopyTransforms
 from ..operators.NLA_action import AH_DuplicateSelectedBonesAction
 from ..operators.Knot import AH_Knot
 
+# Import icon utilities
+from ..icons import get_icon_id
+
 class AH_AnimTools(bpy.types.Panel):
     """Animation tools panel in the 3D View sidebar"""
     bl_label = "Anim Tools"
@@ -26,9 +29,9 @@ class AH_AnimTools(bpy.types.Panel):
         box = layout.box()
         box.label(text="Space Switching Tools")
         
-        # Color 1 - Blue themed button
+        # Custom icon for Knot operator
         row = box.row()
-        row.operator(AH_Knot.bl_idname, icon='COLORSET_01_VEC', text="Knot Constraint")
+        row.operator(AH_Knot.bl_idname, icon_value=get_icon_id("knot"), text="Knot Constraint")
         
         # Color 2 - Green themed button
         row = box.row()
