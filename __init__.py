@@ -6,7 +6,7 @@ bl_info = {
     "description": "anim helper tools",
     "author": "HAssan",
     "version": (1, 0),
-    "blender": (3, 0, 0),
+    "blender": (4, 2, 0),
     "location": "View3D",
     "category": "3d View",}
 

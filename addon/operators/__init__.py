@@ -8,7 +8,12 @@ from .add_shoulder_lock import Anim_AH_Shoulder_lock
 from .Add_copyT_and_reverse import Anim_H_Copy_T
 from .Origin_XY import Anim_H_CenterObjectsXY
 from .MakeCollection import Anim_H_MoveToNewCollection
-
+from .NLA_action import Anim_H_NLA
+from .Knot import ANIM_H_knot
+from .Delete_actions import AH_DeleteActions, AH_DeleteActionsProperties
+from .Facial_cleanup import AH_RenameAndCleanup, AH_Facialprops
+from .Snap_to_audio import Anim_H_SnapPlayhead_to_audio
+from .Mirror_keys import AH_MIRROR_BONE_KEYFRAMES
 
 classes = (bakeprops,
            Anim_AH_Shoulder_lock,
@@ -18,6 +23,17 @@ classes = (bakeprops,
            Anim_H_Copy_T,
            Anim_H_CenterObjectsXY,
            Anim_H_MoveToNewCollection,
+           Anim_H_NLA,
+           ANIM_H_knot,
+           AH_DeleteActions,
+           AH_RenameAndCleanup,  
+           AH_DeleteActionsProperties,
+           AH_Facialprops,
+           Anim_H_SnapPlayhead_to_audio,
+           AH_MIRROR_BONE_KEYFRAMES
+           
+           
+                    
            
            )
 
@@ -27,8 +43,12 @@ def register_operators():
     for cls in classes:
         register_class(cls)
 
-    bpy.types.Scene.Factor = bpy.props.FloatProperty(name= "Factor", default=0.75, min=0, max=1)  
+    
     bpy.types.Scene.bprops = bpy.props.PointerProperty(type= bakeprops)
+    bpy.types.Scene.Dprops = bpy.props.PointerProperty(type=AH_DeleteActionsProperties)
+    bpy.types.Scene.fprops = bpy.props.PointerProperty(type=AH_Facialprops)
+    
+    
     
     
 
@@ -37,7 +57,9 @@ def unregister_operators():
     for cls in reversed(classes):
         unregister_class(cls)
     
-    del bpy.types.Scene.Factor
+
+    del bpy.types.Scene.fprops
+    del bpy.types.Scene.Dprops  
     del bpy.types.Scene.bprops
 
 
