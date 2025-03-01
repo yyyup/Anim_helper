@@ -1,11 +1,12 @@
 import bpy
 
-# Import all operator classes with standardized prefixes
+# Import all operator classes with standardized naming
 from .animation_bake import AH_AnimationBake
 from .decimate_ratio_75 import AH_DecimateKeys
 from .Delete_duplicate_mats import AH_MaterialCleanup
 from .add_shoulder_lock import AH_ShoulderLock
 from .Add_copyT_and_reverse import AH_CopyTransforms
+from .Copy_rotation import AH_CopyRotation
 from .Origin_XY import AH_CenterObjectsXY
 from .MakeCollection import AH_MoveToNewCollection
 from .NLA_action import AH_DuplicateSelectedBonesAction
@@ -22,6 +23,7 @@ classes = (
     AH_DecimateKeys,
     AH_MaterialCleanup,
     AH_CopyTransforms,
+    AH_CopyRotation,
     AH_CenterObjectsXY,
     AH_MoveToNewCollection,
     AH_DuplicateSelectedBonesAction,

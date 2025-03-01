@@ -6,11 +6,18 @@ from ..operators.animation_bake import AH_AnimationBake
 from ..operators.decimate_ratio_75 import AH_DecimateKeys
 from ..operators.add_shoulder_lock import AH_ShoulderLock
 from ..operators.Add_copyT_and_reverse import AH_CopyTransforms
+from ..operators.Copy_rotation import AH_CopyRotation
 from ..operators.NLA_action import AH_DuplicateSelectedBonesAction
 from ..operators.Knot import AH_Knot
 
-# Import icon utilities
-from ..icons import get_icon_id
+# Import icon utilities safely with fallback
+try:
+    from ..icons import get_icon_id
+    HAS_ICONS = True
+except ImportError:
+    HAS_ICONS = False
+    def get_icon_id(name):
+        return 0
 
 class AH_AnimTools(bpy.types.Panel):
     """Animation tools panel in the 3D View sidebar"""
@@ -29,17 +36,30 @@ class AH_AnimTools(bpy.types.Panel):
         box = layout.box()
         box.label(text="Space Switching Tools")
         
-        # Custom icon for Knot operator
+        # Try to use custom icon for Knot operator, with fallback
         row = box.row()
-        row.operator(AH_Knot.bl_idname, icon_value=get_icon_id("knot"), text="Knot Constraint")
+        if HAS_ICONS:
+            try:
+                knot_icon_id = get_icon_id("knot")
+                if knot_icon_id != 0:
+                    row.operator(AH_Knot.bl_idname, icon_value=knot_icon_id, text="Knot Constraint")
+                else:
+                    row.operator(AH_Knot.bl_idname, icon='CONSTRAINT', text="Knot Constraint")
+            except:
+                row.operator(AH_Knot.bl_idname, icon='CONSTRAINT', text="Knot Constraint")
+        else:
+            row.operator(AH_Knot.bl_idname, icon='CONSTRAINT', text="Knot Constraint")
         
-        # Color 2 - Green themed button
+        # Other buttons
         row = box.row()
         row.operator(AH_ShoulderLock.bl_idname, icon='COLORSET_03_VEC', text="Shoulder Lock")
         
-        # Color 3 - Purple themed button
         row = box.row()
         row.operator(AH_CopyTransforms.bl_idname, icon='COLORSET_04_VEC', text="Copy Transforms")
+        
+        # New Copy Rotation button
+        row = box.row()
+        row.operator(AH_CopyRotation.bl_idname, icon='COLORSET_06_VEC', text="Copy Rotation")
         
         layout.separator()
         
@@ -47,11 +67,9 @@ class AH_AnimTools(bpy.types.Panel):
         box = layout.box()
         box.label(text="Keyframe Cleanup")
         
-        # Color 4 - Orange themed button for decimation
         row = box.row()
         row.operator(AH_DecimateKeys.bl_idname, icon='COLORSET_02_VEC', text="Decimate Keyframes")
         
-        # Slider with better formatting
         row = box.row()
         row.prop(scene, "Factor", slider=True)
         
@@ -61,20 +79,16 @@ class AH_AnimTools(bpy.types.Panel):
         box = layout.box()
         box.label(text="Animation Baking")
         
-        # Color 5 - Red themed button for recording/baking
         row = box.row()
-        row.alert = True  # This makes the button reddish (alert style)
+        row.alert = True
         row.operator(AH_AnimationBake.bl_idname, icon='REC', text="Easy Bake Animation")
         
-        # Yellow themed button for NLA
         row = box.row()
         row.operator(AH_DuplicateSelectedBonesAction.bl_idname, icon='COLORSET_09_VEC', text="Duplicate Selected Bones Action")
         
-        # Baking options in a sub-box with different background
         sub_box = box.box()
         sub_box.label(text="Baking Options", icon='PREFERENCES')
         
-        # Smart bake option
         sub_box.prop(bakeprops, "smart_bake")
         
         if not bakeprops.smart_bake:
@@ -82,7 +96,6 @@ class AH_AnimTools(bpy.types.Panel):
             row.prop(bakeprops, "custom_frame_start", text="Start")
             row.prop(bakeprops, "custom_frame_end", text="End")
         
-        # Options in columns for cleaner layout
         col1 = sub_box.column(align=True)
         col1.label(text="Keying Options:")
         col1.prop(bakeprops, "visual_keying")
