@@ -1,92 +1,96 @@
 import bpy
 import bpy.props
 
-from ..operators.animation_bake import AH_Animation_bake
-from ..operators.decimate_ratio_75 import Anim_OP_Decimate
-from ..operators.add_shoulder_lock import Anim_AH_Shoulder_lock
-from ..operators.Add_copyT_and_reverse import Anim_H_Copy_T
-from ..operators.NLA_action import Anim_H_NLA
-from ..operators.Knot import ANIM_H_knot
-from ..operators.Delete_actions import AH_DeleteActions, AH_DeleteActionsProperties
-from ..operators.Facial_cleanup import AH_RenameAndCleanup, AH_Facialprops
-from ..operators.Snap_to_audio import Anim_H_SnapPlayhead_to_audio
-from ..operators.Mirror_keys import AH_MIRROR_BONE_KEYFRAMES
+# Import operators with standardized naming
+from ..operators.animation_bake import AH_AnimationBake
+from ..operators.decimate_ratio_75 import AH_DecimateKeys
+from ..operators.add_shoulder_lock import AH_ShoulderLock
+from ..operators.Add_copyT_and_reverse import AH_CopyTransforms
+from ..operators.NLA_action import AH_DuplicateSelectedBonesAction
+from ..operators.Knot import AH_Knot
 
-class Panel1(bpy.types.Panel):
+class AH_AnimTools(bpy.types.Panel):
+    """Animation tools panel in the 3D View sidebar"""
     bl_label = "Anim Tools"
-    bl_idname = "Anim_Tools"
+    bl_idname = "AH_PT_AnimTools"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'AH Helper'
     
     def draw(self, context):
         layout = self.layout
-        
         scene = context.scene
         bakeprops = scene.bprops
-        Deleteprops = context.scene.Dprops
         
+        # Space switching tools section
+        box = layout.box()
+        box.label(text="Space Switching Tools")
         
+        # Color 1 - Blue themed button
+        row = box.row()
+        row.operator(AH_Knot.bl_idname, icon='COLORSET_01_VEC', text="Knot Constraint")
         
-        row = layout.row()
-        col = layout.column()
+        # Color 2 - Green themed button
+        row = box.row()
+        row.operator(AH_ShoulderLock.bl_idname, icon='COLORSET_03_VEC', text="Shoulder Lock")
         
-        
-        
-        col.label(text= "Space switching Tools")
-        col.operator(ANIM_H_knot.bl_idname)
-        col.operator("shoulder.lock")
-        col.operator("anim_h.copy_t")
-        col.separator()
+        # Color 3 - Purple themed button
+        row = box.row()
+        row.operator(AH_CopyTransforms.bl_idname, icon='COLORSET_04_VEC', text="Copy Transforms")
         
         layout.separator()
         
-        layout.prop(Deleteprops, "keyword")
-        layout.operator(AH_DeleteActions.bl_idname, text="Delete Actions")
+        # Keyframe cleanup section
+        box = layout.box()
+        box.label(text="Keyframe Cleanup")
+        
+        # Color 4 - Orange themed button for decimation
+        row = box.row()
+        row.operator(AH_DecimateKeys.bl_idname, icon='COLORSET_02_VEC', text="Decimate Keyframes")
+        
+        # Slider with better formatting
+        row = box.row()
+        row.prop(scene, "Factor", slider=True)
+        
         layout.separator()
-        layout.operator(Anim_H_SnapPlayhead_to_audio.bl_idname, text="Snap to audio")
-        layout.operator(AH_MIRROR_BONE_KEYFRAMES.bl_idname, text="Mirror selected keys")
         
+        # Animation baking section
+        box = layout.box()
+        box.label(text="Animation Baking")
         
-        layout = self.layout
+        # Color 5 - Red themed button for recording/baking
+        row = box.row()
+        row.alert = True  # This makes the button reddish (alert style)
+        row.operator(AH_AnimationBake.bl_idname, icon='REC', text="Easy Bake Animation")
         
+        # Yellow themed button for NLA
+        row = box.row()
+        row.operator(AH_DuplicateSelectedBonesAction.bl_idname, icon='COLORSET_09_VEC', text="Duplicate Selected Bones Action")
         
+        # Baking options in a sub-box with different background
+        sub_box = box.box()
+        sub_box.label(text="Baking Options", icon='PREFERENCES')
         
-        fprops = context.scene.fprops
+        # Smart bake option
+        sub_box.prop(bakeprops, "smart_bake")
         
-        layout.label(text="Rename Actions:")
-        layout.prop(fprops, 'rig_action_name')
-        layout.prop(fprops, 'shapekey_action_name')
-        layout.prop_search(fprops, 'body_mesh_name', context.scene, 'objects', text="Body Mesh")
-        layout.separator()
-        layout.operator(AH_RenameAndCleanup.bl_idname, text="Rename and Cleanup")
-        
-        
-        
-        col.label(text= "Keyframe CleanUp")
-        col.operator(Anim_OP_Decimate.bl_idname)
-        
-        
-        col.prop(context.scene, "Factor")
-        
-        
-        col.operator(AH_Animation_bake.bl_idname)
-        
-        col.operator(Anim_H_NLA.bl_idname)
-        
-        
-        
-        
-        
-        col.prop(bakeprops, "smart_bake")
         if not bakeprops.smart_bake:
-            col.prop(bakeprops, "custom_frame_start", text="Start Frame")
-            col.prop(bakeprops, "custom_frame_end", text="End Frame")
+            row = sub_box.row(align=True)
+            row.prop(bakeprops, "custom_frame_start", text="Start")
+            row.prop(bakeprops, "custom_frame_end", text="End")
         
-        col.prop(bakeprops, "visual_keying")
-        col.prop(bakeprops, "only_selected_bones")
-        col.prop(bakeprops, "clear_constraints")
-        col.prop(bakeprops, "clear_parents")
-        col.prop(bakeprops, "overwrite_current_action")
-    
+        # Options in columns for cleaner layout
+        col1 = sub_box.column(align=True)
+        col1.label(text="Keying Options:")
+        col1.prop(bakeprops, "visual_keying")
+        col1.prop(bakeprops, "only_selected_bones")
         
+        col2 = sub_box.column(align=True)
+        col2.label(text="Cleanup Options:")
+        col2.prop(bakeprops, "clear_constraints")
+        col2.prop(bakeprops, "clear_parents")
+        col2.prop(bakeprops, "overwrite_current_action")
+
+    def draw_header(self, context):
+        layout = self.layout
+        layout.label(icon='ARMATURE_DATA')

@@ -1,32 +1,43 @@
 import bpy
 
-bpy.props.FloatProperty(name= "Factor", default=0.75, min=0, max=1)
-
-class Anim_OP_Decimate(bpy.types.Operator):
-    """Decimate baked keys by a ratio of 75%"""
-    
+class AH_DecimateKeys(bpy.types.Operator):
+    """Decimate keyframes to reduce animation complexity while preserving motion"""
     bl_idname = "anim.decimate_keys"
-    bl_label = "Decimate Keys"
-    bl_description = "Decimate baked keys"
+    bl_label = "Decimate Keyframes"
+    bl_description = "Reduce the number of keyframes in the animation"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        original_area_type = None
+        original_area = None
+        factor = context.scene.Factor
+        
         try:
-            # Store the original area type
-            original_area_type = context.area.type
+            # Find a 3D view area to work with
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    original_area = area
+                    original_area_type = area.type
+                    area.type = 'GRAPH_EDITOR'
+                    break
             
-            # Change the active area to Graph Editor
-            context.area.type = 'GRAPH_EDITOR'
+            # If no 3D View found, try to use the current area
+            if original_area is None:
+                original_area = context.area
+                original_area_type = original_area.type
+                original_area.type = 'GRAPH_EDITOR'
             
             # Perform the decimation
-            bpy.ops.graph.decimate(mode='RATIO', factor=context.scene.Factor)
+            bpy.ops.graph.decimate(mode='RATIO', factor=factor)
             
-            # Restore the original area type
-            context.area.type = original_area_type
-            
-            self.report({'INFO'}, "Keys decimated successfully.")
+            self.report({'INFO'}, f"Keys decimated successfully. Keeping {factor*100:.1f}% of keyframes.")
             return {'FINISHED'}
         
         except Exception as e:
-            self.report({'ERROR'}, f"An error occurred: {e}")
+            self.report({'ERROR'}, f"Failed to decimate keyframes: {str(e)}")
             return {'CANCELLED'}
+        
+        finally:
+            # Restore the original area type
+            if original_area and original_area_type:
+                original_area.type = original_area_type
