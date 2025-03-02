@@ -4,7 +4,7 @@ class AH_CopyRotation(bpy.types.Operator):
     """Create empty objects that copy and can reverse the rotation of selected bones or mesh objects"""
     bl_idname = "anim_h.copy_rotation"
     bl_label = "Copy Rotation with Reverse"
-    bl_description = "Create empties that copy rotation from bones or mesh objects for advanced animation control"
+    bl_description = "Space switch: Create empties that copy rotation for advanced animation control"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -24,6 +24,120 @@ class AH_CopyRotation(bpy.types.Operator):
         else:
             self.report({'WARNING'}, "Please select an armature in pose mode or mesh objects.")
             return {'CANCELLED'}
+    
+    def find_armature_frame_range(self, armature, bones, rotation_only=True):
+        """Find the animation frame range for bones in an armature"""
+        min_frame = float('inf')
+        max_frame = float('-inf')
+        has_animation = False
+        
+        # Check for animation data
+        if armature.animation_data and armature.animation_data.action:
+            action = armature.animation_data.action
+            
+            # Look for keyframes on the specific bones
+            for bone in bones:
+                bone_path = f'pose.bones["{bone.name}"]'
+                for fcurve in action.fcurves:
+                    if bone_path in fcurve.data_path:
+                        # For rotation-only check, filter curves
+                        if rotation_only and "rotation" not in fcurve.data_path:
+                            continue
+                            
+                        if fcurve.keyframe_points:
+                            has_animation = True
+                            for keyframe in fcurve.keyframe_points:
+                                min_frame = min(min_frame, keyframe.co.x)
+                                max_frame = max(max_frame, keyframe.co.x)
+        
+        # Check NLA strips if no direct action keyframes found
+        if not has_animation and armature.animation_data:
+            for track in armature.animation_data.nla_tracks:
+                for strip in track.strips:
+                    has_animation = True
+                    min_frame = min(min_frame, strip.frame_start)
+                    max_frame = max(max_frame, strip.frame_end)
+                    
+        # If still no animation found, check for object animation on armature
+        if not has_animation and armature.animation_data and armature.animation_data.action:
+            action = armature.animation_data.action
+            for fcurve in action.fcurves:
+                if not 'pose.bones' in fcurve.data_path:
+                    if rotation_only and "rotation" not in fcurve.data_path:
+                        continue
+                        
+                    if fcurve.keyframe_points:
+                        has_animation = True
+                        for keyframe in fcurve.keyframe_points:
+                            min_frame = min(min_frame, keyframe.co.x)
+                            max_frame = max(max_frame, keyframe.co.x)
+        
+        if has_animation:
+            return int(min_frame), int(max_frame), True
+        else:
+            return 0, 0, False
+            
+    def find_object_frame_range(self, obj, rotation_only=True):
+        """Recursively find the animation frame range from an object and its parents"""
+        min_frame = float('inf')
+        max_frame = float('-inf')
+        has_animation = False
+        
+        # Check the object's own animation
+        if obj.animation_data and obj.animation_data.action:
+            action = obj.animation_data.action
+            for fcurve in action.fcurves:
+                if rotation_only and "rotation" not in fcurve.data_path:
+                    continue
+                    
+                if fcurve.keyframe_points:
+                    has_animation = True
+                    for keyframe in fcurve.keyframe_points:
+                        min_frame = min(min_frame, keyframe.co.x)
+                        max_frame = max(max_frame, keyframe.co.x)
+        
+        # If no rotation animation found but rotation_only is True, try again without filter
+        if rotation_only and not has_animation and obj.animation_data and obj.animation_data.action:
+            action = obj.animation_data.action
+            for fcurve in action.fcurves:
+                if fcurve.keyframe_points:
+                    has_animation = True
+                    for keyframe in fcurve.keyframe_points:
+                        min_frame = min(min_frame, keyframe.co.x)
+                        max_frame = max(max_frame, keyframe.co.x)
+        
+        # Check NLA strips if no direct action keyframes found
+        if not has_animation and obj.animation_data:
+            for track in obj.animation_data.nla_tracks:
+                for strip in track.strips:
+                    has_animation = True
+                    min_frame = min(min_frame, strip.frame_start)
+                    max_frame = max(max_frame, strip.frame_end)
+                        
+        # If this object has no animation but has a parent, check the parent
+        if not has_animation and obj.parent:
+            parent_min, parent_max, parent_has_anim = self.find_object_frame_range(obj.parent, rotation_only)
+            
+            if parent_has_anim:
+                min_frame = parent_min
+                max_frame = parent_max
+                has_animation = True
+                
+        # If no animation found so far, check for constraints that might have keyframes
+        if not has_animation:
+            for constraint in obj.constraints:
+                if constraint.type in {'FOLLOW_PATH', 'TRACK_TO'} and constraint.target:
+                    target_min, target_max, target_has_anim = self.find_object_frame_range(constraint.target, rotation_only)
+                    if target_has_anim:
+                        min_frame = target_min
+                        max_frame = target_max
+                        has_animation = True
+                        break
+        
+        if has_animation:
+            return int(min_frame), int(max_frame), True
+        else:
+            return 0, 0, False
             
     def process_bones(self, context):
         """Handle selected pose bones"""
@@ -35,33 +149,17 @@ class AH_CopyRotation(bpy.types.Operator):
             self.report({'WARNING'}, "No bones selected.")
             return {'CANCELLED'}
         
-        # Find the keyframe range for the selected bones
-        min_frame = float('inf')
-        max_frame = float('-inf')
-        
-        # Check for animation data
+        # Try to detect frame range from animation
         armature = selected_bones[0].id_data
-        if not armature.animation_data or not armature.animation_data.action:
-            self.report({'WARNING'}, "No animation data found on the armature.")
-            return {'CANCELLED'}
-            
-        # Scan fcurves for keyframe range
-        action = armature.animation_data.action
-        for bone in selected_bones:
-            bone_path = f'pose.bones["{bone.name}"]'
-            for fcurve in action.fcurves:
-                if bone_path in fcurve.data_path and "rotation" in fcurve.data_path and fcurve.keyframe_points:
-                    for keyframe in fcurve.keyframe_points:
-                        min_frame = min(min_frame, keyframe.co.x)
-                        max_frame = max(max_frame, keyframe.co.x)
-
-        if min_frame == float('inf') or max_frame == float('-inf'):
-            self.report({'WARNING'}, "No rotation keyframes found in the selected bones.")
-            return {'CANCELLED'}
+        min_frame, max_frame, has_animation = self.find_armature_frame_range(armature, selected_bones, True)
         
-        # Round to integer frames
-        min_frame = int(min_frame)
-        max_frame = int(max_frame)
+        # If no animation found, use scene frame range
+        if not has_animation:
+            min_frame = context.scene.frame_start
+            max_frame = context.scene.frame_end
+            self.report({'INFO'}, f"No direct animation found. Using scene frame range: {min_frame} to {max_frame}")
+        else:
+            self.report({'INFO'}, f"Found animation frame range: {min_frame} to {max_frame}")
         
         # Create empties for the selected bones
         created_empties = []
@@ -71,7 +169,11 @@ class AH_CopyRotation(bpy.types.Operator):
                 # Create an empty at the location of the bone
                 empty = bpy.data.objects.new(f"CopyRot_{bone.name}", None)
                 empty.empty_display_type = 'ARROWS'  # Visual indicator for rotation
-                empty.location = bone.matrix.to_translation()
+                
+                # Calculate world space location and rotation
+                armature = bone.id_data
+                bone_matrix_world = armature.matrix_world @ bone.matrix
+                empty.matrix_world = bone_matrix_world
                 empty.rotation_mode = bone.rotation_mode  # Match rotation mode
                 
                 # Link the empty object to the current scene collection
@@ -131,32 +233,32 @@ class AH_CopyRotation(bpy.types.Operator):
             
     def process_mesh_objects(self, context):
         """Handle selected mesh objects"""
-        selected_objects = [obj for obj in context.selected_objects if obj.type in {'MESH', 'EMPTY', 'CURVE'}]
+        selected_objects = [obj for obj in context.selected_objects if obj.type in {'MESH', 'EMPTY', 'CURVE', 'ARMATURE'}]
         
         if not selected_objects:
             self.report({'WARNING'}, "No valid objects selected.")
             return {'CANCELLED'}
             
-        # Find frame range from all selected objects
+        # Find frame range from all selected objects and their parents
         min_frame = float('inf')
         max_frame = float('-inf')
-        
         has_animation = False
         
         for obj in selected_objects:
-            if obj.animation_data and obj.animation_data.action:
+            obj_min, obj_max, obj_has_anim = self.find_object_frame_range(obj, True)
+            
+            if obj_has_anim:
                 has_animation = True
-                action = obj.animation_data.action
-                for fcurve in action.fcurves:
-                    if "rotation" in fcurve.data_path and fcurve.keyframe_points:
-                        for keyframe in fcurve.keyframe_points:
-                            min_frame = min(min_frame, keyframe.co.x)
-                            max_frame = max(max_frame, keyframe.co.x)
+                min_frame = min(min_frame, obj_min)
+                max_frame = max(max_frame, obj_max)
         
         # If no animation is found, use scene frame range
-        if not has_animation or min_frame == float('inf') or max_frame == float('-inf'):
+        if not has_animation:
             min_frame = context.scene.frame_start
             max_frame = context.scene.frame_end
+            self.report({'INFO'}, f"No direct animation found. Using scene frame range: {min_frame} to {max_frame}")
+        else:
+            self.report({'INFO'}, f"Found animation frame range: {min_frame} to {max_frame}")
             
         # Create empties for the selected objects
         created_empties = []
@@ -166,8 +268,9 @@ class AH_CopyRotation(bpy.types.Operator):
                 # Create an empty at the location of the object
                 empty = bpy.data.objects.new(f"CopyRot_{obj.name}", None)
                 empty.empty_display_type = 'ARROWS'  # Visual indicator for rotation
-                empty.location = obj.location
-                empty.rotation_euler = obj.rotation_euler
+                
+                # Set the initial transform to match the object's current world transform
+                empty.matrix_world = obj.matrix_world.copy()
                 empty.rotation_mode = obj.rotation_mode  # Match rotation mode
                 
                 # Link the empty object to the current scene collection
@@ -178,7 +281,10 @@ class AH_CopyRotation(bpy.types.Operator):
                 constraint.target = obj
 
                 # Add the created empty to the list
-                created_empties.append(empty)
+                created_empties.append({
+                    "empty": empty,
+                    "original": obj
+                })
 
             # Store the active object
             original_active_object = context.active_object
@@ -187,9 +293,9 @@ class AH_CopyRotation(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
 
             # Select the created empties
-            for empty in created_empties:
-                empty.select_set(True)
-            context.view_layer.objects.active = created_empties[0]
+            for item in created_empties:
+                item["empty"].select_set(True)
+            context.view_layer.objects.active = created_empties[0]["empty"]
 
             # Bake the empties' animation
             bpy.ops.nla.bake(
@@ -209,20 +315,17 @@ class AH_CopyRotation(bpy.types.Operator):
             context.view_layer.objects.active = original_active_object
 
             # Add Copy Rotation constraints to the original objects, targeting the empties
-            for i, obj in enumerate(selected_objects):
-                if i < len(created_empties):
-                    constraint = obj.constraints.new(type="COPY_ROTATION")
-                    constraint.target = created_empties[i]
+            for item in created_empties:
+                constraint = item["original"].constraints.new(type="COPY_ROTATION")
+                constraint.target = item["empty"]
             
             # Apply cycling modifier to the empty rotations for reversed animation effect
-            for empty in created_empties:
+            for item in created_empties:
+                empty = item["empty"]
                 if empty.animation_data and empty.animation_data.action:
                     for fcurve in empty.animation_data.action.fcurves:
                         if "rotation" in fcurve.data_path:
                             cycles_mod = fcurve.modifiers.new('CYCLES')
-                            # Optional: Offset keyframes for delayed effect
-                            # for keyframe in fcurve.keyframe_points:
-                            #     keyframe.co.x += 2
                             fcurve.update()
             
             # Report success

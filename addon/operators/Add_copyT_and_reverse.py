@@ -4,7 +4,7 @@ class AH_CopyTransforms(bpy.types.Operator):
     """Create empty objects that copy and can reverse the transforms of selected bones or mesh objects"""
     bl_idname = "anim_h.copy_t"
     bl_label = "Copy Transforms with Reverse"
-    bl_description = "Create empties that copy transforms from bones or mesh objects for advanced animation control"
+    bl_description = "Space switch: Create empties that copy transforms for advanced animation control"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -24,6 +24,98 @@ class AH_CopyTransforms(bpy.types.Operator):
         else:
             self.report({'WARNING'}, "Please select an armature in pose mode or mesh objects.")
             return {'CANCELLED'}
+
+    def find_armature_frame_range(self, armature, bones):
+        """Find the animation frame range for bones in an armature"""
+        min_frame = float('inf')
+        max_frame = float('-inf')
+        has_animation = False
+        
+        # Check for animation data
+        if armature.animation_data and armature.animation_data.action:
+            action = armature.animation_data.action
+            
+            # Look for keyframes on the specific bones
+            for bone in bones:
+                bone_path = f'pose.bones["{bone.name}"]'
+                for fcurve in action.fcurves:
+                    if bone_path in fcurve.data_path and fcurve.keyframe_points:
+                        has_animation = True
+                        for keyframe in fcurve.keyframe_points:
+                            min_frame = min(min_frame, keyframe.co.x)
+                            max_frame = max(max_frame, keyframe.co.x)
+        
+        # Check NLA strips if no direct action keyframes found
+        if not has_animation and armature.animation_data:
+            for track in armature.animation_data.nla_tracks:
+                for strip in track.strips:
+                    has_animation = True
+                    min_frame = min(min_frame, strip.frame_start)
+                    max_frame = max(max_frame, strip.frame_end)
+                    
+        # If still no animation found, check for object animation on armature
+        if not has_animation and armature.animation_data and armature.animation_data.action:
+            action = armature.animation_data.action
+            for fcurve in action.fcurves:
+                if not 'pose.bones' in fcurve.data_path and fcurve.keyframe_points:
+                    has_animation = True
+                    for keyframe in fcurve.keyframe_points:
+                        min_frame = min(min_frame, keyframe.co.x)
+                        max_frame = max(max_frame, keyframe.co.x)
+        
+        if has_animation:
+            return int(min_frame), int(max_frame), True
+        else:
+            return 0, 0, False
+            
+    def find_object_frame_range(self, obj):
+        """Recursively find the animation frame range from an object and its parents"""
+        min_frame = float('inf')
+        max_frame = float('-inf')
+        has_animation = False
+        
+        # Check the object's own animation
+        if obj.animation_data and obj.animation_data.action:
+            has_animation = True
+            action = obj.animation_data.action
+            for fcurve in action.fcurves:
+                if fcurve.keyframe_points:
+                    for keyframe in fcurve.keyframe_points:
+                        min_frame = min(min_frame, keyframe.co.x)
+                        max_frame = max(max_frame, keyframe.co.x)
+        
+        # Check NLA strips if no direct action keyframes found
+        if not has_animation and obj.animation_data:
+            for track in obj.animation_data.nla_tracks:
+                for strip in track.strips:
+                    has_animation = True
+                    min_frame = min(min_frame, strip.frame_start)
+                    max_frame = max(max_frame, strip.frame_end)
+                        
+        # If this object has no animation but has a parent, check the parent
+        if not has_animation and obj.parent:
+            parent_min, parent_max, parent_has_anim = self.find_object_frame_range(obj.parent)
+            
+            if parent_has_anim:
+                min_frame = parent_min
+                max_frame = parent_max
+                has_animation = True
+                
+        # If no animation found so far, check for constraints that might have keyframes
+        if not has_animation:
+            for constraint in obj.constraints:
+                if constraint.type in {'FOLLOW_PATH', 'TRACK_TO'} and constraint.target:
+                    target_min, target_max, target_has_anim = self.find_object_frame_range(constraint.target)
+                    if target_has_anim:
+                        min_frame = target_min
+                        max_frame = target_max
+                        has_animation = True
+                        break
+        
+        if has_animation:
+            return int(min_frame), int(max_frame), True
+        else:
+            return 0, 0, False
             
     def process_bones(self, context):
         """Handle selected pose bones"""
@@ -35,33 +127,17 @@ class AH_CopyTransforms(bpy.types.Operator):
             self.report({'WARNING'}, "No bones selected.")
             return {'CANCELLED'}
         
-        # Find the keyframe range for the selected bones
-        min_frame = float('inf')
-        max_frame = float('-inf')
-        
-        # Check for animation data
+        # Try to detect frame range from animation
         armature = selected_bones[0].id_data
-        if not armature.animation_data or not armature.animation_data.action:
-            self.report({'WARNING'}, "No animation data found on the armature.")
-            return {'CANCELLED'}
-            
-        # Scan fcurves for keyframe range
-        action = armature.animation_data.action
-        for bone in selected_bones:
-            bone_path = f'pose.bones["{bone.name}"]'
-            for fcurve in action.fcurves:
-                if bone_path in fcurve.data_path and fcurve.keyframe_points:
-                    for keyframe in fcurve.keyframe_points:
-                        min_frame = min(min_frame, keyframe.co.x)
-                        max_frame = max(max_frame, keyframe.co.x)
-
-        if min_frame == float('inf') or max_frame == float('-inf'):
-            self.report({'WARNING'}, "No keyframes found in the selected bones.")
-            return {'CANCELLED'}
+        min_frame, max_frame, has_animation = self.find_armature_frame_range(armature, selected_bones)
         
-        # Round to integer frames
-        min_frame = int(min_frame)
-        max_frame = int(max_frame)
+        # If no animation found, use scene frame range
+        if not has_animation:
+            min_frame = context.scene.frame_start
+            max_frame = context.scene.frame_end
+            self.report({'INFO'}, f"No direct animation found. Using scene frame range: {min_frame} to {max_frame}")
+        else:
+            self.report({'INFO'}, f"Found animation frame range: {min_frame} to {max_frame}")
         
         # Create empties for the selected bones
         created_empties = []
@@ -70,7 +146,12 @@ class AH_CopyTransforms(bpy.types.Operator):
             for bone in selected_bones:
                 # Create an empty at the location of the bone
                 empty = bpy.data.objects.new(f"CopyT_{bone.name}", None)
-                empty.location = bone.matrix.to_translation()
+                
+                # Calculate world space location
+                armature = bone.id_data
+                bone_matrix_world = armature.matrix_world @ bone.matrix
+                empty.matrix_world = bone_matrix_world
+                empty.rotation_mode = bone.rotation_mode  # Match rotation mode
                 
                 # Link the empty object to the current scene collection
                 context.collection.objects.link(empty)
@@ -129,43 +210,44 @@ class AH_CopyTransforms(bpy.types.Operator):
             
     def process_mesh_objects(self, context):
         """Handle selected mesh objects"""
-        selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        selected_objects = [obj for obj in context.selected_objects if obj.type in {'MESH', 'EMPTY', 'CURVE', 'ARMATURE'}]
         
         if not selected_objects:
-            self.report({'WARNING'}, "No mesh objects selected.")
+            self.report({'WARNING'}, "No suitable objects selected.")
             return {'CANCELLED'}
             
-        # Find frame range from all selected objects
+        # Find frame range from all selected objects and their parents
         min_frame = float('inf')
         max_frame = float('-inf')
-        
         has_animation = False
         
         for obj in selected_objects:
-            if obj.animation_data and obj.animation_data.action:
+            obj_min, obj_max, obj_has_anim = self.find_object_frame_range(obj)
+            
+            if obj_has_anim:
                 has_animation = True
-                action = obj.animation_data.action
-                for fcurve in action.fcurves:
-                    if fcurve.keyframe_points:
-                        for keyframe in fcurve.keyframe_points:
-                            min_frame = min(min_frame, keyframe.co.x)
-                            max_frame = max(max_frame, keyframe.co.x)
+                min_frame = min(min_frame, obj_min)
+                max_frame = max(max_frame, obj_max)
         
         # If no animation is found, use scene frame range
-        if not has_animation or min_frame == float('inf') or max_frame == float('-inf'):
+        if not has_animation:
             min_frame = context.scene.frame_start
             max_frame = context.scene.frame_end
+            self.report({'INFO'}, f"No direct animation found. Using scene frame range: {min_frame} to {max_frame}")
+        else:
+            self.report({'INFO'}, f"Found animation frame range: {min_frame} to {max_frame}")
             
         # Create empties for the selected objects
         created_empties = []
         try:
             # Create an empty for each selected object
             for obj in selected_objects:
-                # Create an empty at the location of the object
+                # Create an empty that matches the object's current transform
                 empty = bpy.data.objects.new(f"CopyT_{obj.name}", None)
-                empty.location = obj.location
-                empty.rotation_euler = obj.rotation_euler
-                empty.scale = obj.scale
+                
+                # Set the initial transform to match the object's current world transform
+                empty.matrix_world = obj.matrix_world.copy()
+                empty.rotation_mode = obj.rotation_mode  # Match rotation mode
                 
                 # Link the empty object to the current scene collection
                 context.collection.objects.link(empty)
@@ -175,7 +257,10 @@ class AH_CopyTransforms(bpy.types.Operator):
                 constraint.target = obj
 
                 # Add the created empty to the list
-                created_empties.append(empty)
+                created_empties.append({
+                    "empty": empty,
+                    "original": obj
+                })
 
             # Store the active object
             original_active_object = context.active_object
@@ -184,9 +269,9 @@ class AH_CopyTransforms(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
 
             # Select the created empties
-            for empty in created_empties:
-                empty.select_set(True)
-            context.view_layer.objects.active = created_empties[0]
+            for item in created_empties:
+                item["empty"].select_set(True)
+            context.view_layer.objects.active = created_empties[0]["empty"]
 
             # Bake the empties' animation
             bpy.ops.nla.bake(
@@ -206,16 +291,15 @@ class AH_CopyTransforms(bpy.types.Operator):
             context.view_layer.objects.active = original_active_object
 
             # Add Copy Transforms constraints to the original objects, targeting the empties
-            for i, obj in enumerate(selected_objects):
-                if i < len(created_empties):
-                    constraint = obj.constraints.new(type="COPY_TRANSFORMS")
-                    constraint.target = created_empties[i]
+            for item in created_empties:
+                constraint = item["original"].constraints.new(type="COPY_TRANSFORMS")
+                constraint.target = item["empty"]
             
             # Report success
-            self.report({'INFO'}, f"Created and baked {len(created_empties)} empties for mesh object transform control.")
+            self.report({'INFO'}, f"Created and baked {len(created_empties)} empties for object transform control.")
             
             return {'FINISHED'}
             
         except Exception as e:
-            self.report({'ERROR'}, f"Error creating transform controls for mesh objects: {str(e)}")
+            self.report({'ERROR'}, f"Error creating transform controls for objects: {str(e)}")
             return {'CANCELLED'}

@@ -7,6 +7,7 @@ from .Delete_duplicate_mats import AH_MaterialCleanup
 from .add_shoulder_lock import AH_ShoulderLock
 from .Add_copyT_and_reverse import AH_CopyTransforms
 from .Copy_rotation import AH_CopyRotation
+from .Knot_offset import AH_KnotOffset
 from .Origin_XY import AH_CenterObjectsXY
 from .MakeCollection import AH_MoveToNewCollection
 from .NLA_action import AH_DuplicateSelectedBonesAction
@@ -24,6 +25,7 @@ classes = (
     AH_MaterialCleanup,
     AH_CopyTransforms,
     AH_CopyRotation,
+    AH_KnotOffset,
     AH_CenterObjectsXY,
     AH_MoveToNewCollection,
     AH_DuplicateSelectedBonesAction,
