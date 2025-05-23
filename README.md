@@ -62,7 +62,7 @@ After installation, the tools can be found in the 3D View sidebar under the "AH 
 
 ## Credits
 
-- Created by HAssan
+- Created by CGstuff
 - Refactored and improved for better code organization and reliability
 
 ## License
