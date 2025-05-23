@@ -10,6 +10,13 @@ from ..operators.Copy_rotation import AH_CopyRotation
 from ..operators.Knot_offset import AH_KnotOffset
 from ..operators.NLA_action import AH_DuplicateSelectedBonesAction
 from ..operators.Knot import AH_Knot
+from..operators.AH_inside import AH_inside
+from ..operators.AH_world import AH_world  
+from ..operators.AH_Swap import ANIM_H_OT_swap_parent_child
+from ..operators.empty_size import AH_OT_EmptySizeGrow
+from ..operators.empty_size import AH_OT_EmptySizeShrink
+from ..operators.Offset import AH_offset
+from ..operators.offset_cleanup import AH_offset_cleanup
 
 # Import icon utilities safely with fallback
 try:
@@ -32,40 +39,72 @@ class AH_AnimTools(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
         bakeprops = scene.bprops
+        box = layout.box()
+        #grid = box.grid_flow(row_major=True, columns=1, even_columns=True, even_rows=True, align=True)
         
         # Reverse Hierarchy section (previously Space Switching Tools)
-        box = layout.box()
-        box.label(text="Reverse Hierarchy")
+        
+        box.label(text="Space Switching Tools")
         
         # Create a grid layout for the buttons in Reverse Hierarchy
-        grid = box.grid_flow(row_major=True, columns=1, even_columns=True, even_rows=True, align=True)
+        
+        
+        box.label(text="Locators", icon='EMPTY_ARROWS')
+        col = box.column(align=True)
+        
         
         # Knot Constraint button
-        row = grid.row()
+        row = col.row()
         if HAS_ICONS and get_icon_id("knot") != 0:
-            row.operator(AH_Knot.bl_idname, icon_value=get_icon_id("knot"), text="Knot Constraint")
+            row.operator(AH_Knot.bl_idname, icon='EMPTY_ARROWS', text="T Constraint")
         else:
-            row.operator(AH_Knot.bl_idname, icon='COLORSET_01_VEC', text="Knot Constraint")
-        
-        # New Knot Offset button
-        row = grid.row()
-        row.operator("object.create_constrained_empties", icon='COLORSET_05_VEC', text="Knot Offset")
-        
+            row.operator(AH_Knot.bl_idname, icon='EMPTY_ARROWS', text="Knot Constraint")
+            
         # Copy Transforms button  
-        row = grid.row()
-        row.operator(AH_CopyTransforms.bl_idname, icon='COLORSET_04_VEC', text="Copy Transforms")
+        row = col.row(align=True)
+        row.operator(AH_CopyTransforms.bl_idname, icon='EMPTY_AXIS', text="T Constraint B") 
+        row.operator(AH_offset.bl_idname, icon='AUTOMERGE_OFF', text="offset")
+        row.operator(AH_CopyRotation.bl_idname, icon='DRIVER_ROTATIONAL_DIFFERENCE', text="Copy Rotation")
         
-        # Copy Rotation button
-        row = grid.row()
-        row.operator(AH_CopyRotation.bl_idname, icon='COLORSET_06_VEC', text="Copy Rotation")
+        box.separator()
         
-        # Bonus Tools section
-        box = layout.box()
-        box.label(text="Bonus Tools")
+    
+        box.label(text="Parent", icon='ORIENTATION_PARENT')
+        row = box.row(align=True)
+        row = box.row()
+        row.operator(AH_inside.bl_idname, icon='ORIENTATION_PARENT', text="Inside")
+        row.operator(AH_world.bl_idname, icon='WORLD', text="World")
+        row.operator(ANIM_H_OT_swap_parent_child.bl_idname, icon='ARROW_LEFTRIGHT', text="swap")
+        
+        
+        
+        box.separator()
+        
+        
+         # Bonus Tools section
+        
+        box.label(text="Bonus Tools", icon='TOOL_SETTINGS')
+        row = box.row()
+        row.operator(AH_offset_cleanup.bl_idname, icon='TRASH', text="cleanup")
         
         # Shoulder Lock button in Bonus Tools
         row = box.row()
-        row.operator(AH_ShoulderLock.bl_idname, icon='COLORSET_03_VEC', text="Shoulder Lock")
+        row.operator(AH_ShoulderLock.bl_idname, icon='CONSTRAINT_BONE', text="Shoulder Lock")
+        
+        box.separator()
+        
+        
+        box.label(text="locator size")
+        row = layout.row(align=True)       
+        row.operator(AH_OT_EmptySizeGrow.bl_idname, icon='ADD', text="+")
+        row.operator(AH_OT_EmptySizeShrink.bl_idname, icon='REMOVE', text="-")
+        
+        
+        
+        
+       
+        
+
         
         layout.separator()
         

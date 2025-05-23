@@ -6,7 +6,7 @@ from ..operators.Delete_actions import AH_DeleteActions
 from ..operators.Snap_to_audio import AH_SnapPlayheadToStrip
 from ..operators.Mirror_keys import AH_MirrorBoneKeyframes
 from ..operators.Facial_cleanup import AH_RenameAndCleanup
-from ..operators.decimate_ratio_75 import AH_DecimateKeys
+
 
 class AH_ActionManagement(bpy.types.Panel):
     """Action Management panel in the 3D View sidebar"""
@@ -14,7 +14,7 @@ class AH_ActionManagement(bpy.types.Panel):
     bl_idname = "AH_PT_ActionManagement"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'AH Helper'
+    bl_category = 'Animation'
     
     def draw(self, context):
         layout = self.layout
@@ -38,8 +38,3 @@ class AH_ActionManagement(bpy.types.Panel):
         box.prop_search(fprops, 'body_mesh_name', scene, 'objects', text="Body Mesh")
         box.operator(AH_RenameAndCleanup.bl_idname, text="Rename and Cleanup", icon='CHECKMARK')
         
-        # Keyframe cleanup section
-        box = layout.box()
-        box.label(text="Keyframe Cleanup")
-        box.operator(AH_DecimateKeys.bl_idname, icon='GRAPH')
-        box.prop(scene, "Factor", slider=True)
