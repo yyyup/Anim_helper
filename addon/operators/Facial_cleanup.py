@@ -30,32 +30,11 @@ class AH_RenameAndCleanup(bpy.types.Operator):
         "nose", "nose.001", "nose.003", "nose.004", "nose.005", "nose.L", "nose.R",
         "tongue", "tongue.001", "tongue.002", "tongue.003", "head"
     }
-    
-    # Body bones to DELETE (remove keyframes)  
-    DELETE_BONES = {
-        "root", "VIS_upper_arm_ik_pole.L", "hand_ik.L", "upper_arm_ik.L", "upper_arm_ik_target.L", "upper_arm_parent.L",
-        "VIS_upper_arm_ik_pole.R", "hand_ik.R", "upper_arm_ik.R", "upper_arm_ik_target.R", "upper_arm_parent.R",
-        "VIS_thigh_ik_pole.L", "foot_heel_ik.L", "foot_ik.L", "foot_spin_ik.L", "thigh_ik.L", "thigh_ik_target.L",
-        "thigh_parent.L", "toe_ik.L", "VIS_thigh_ik_pole.R", "foot_heel_ik.R", "foot_ik.R", "foot_spin_ik.R",
-        "thigh_ik.R", "thigh_ik_target.R", "thigh_parent.R", "toe_ik.R", "breast.L", "breast.R",
-        "chest", "hips", "neck", "shoulder.L", "shoulder.R", "torso",
-        "spine_fk", "spine_fk.001", "spine_fk.002", "spine_fk.003",
-        "tweak_spine", "tweak_spine.001", "tweak_spine.002", "tweak_spine.003", "tweak_spine.004", "tweak_spine.005",
-        "foot_tweak.L", "shin_tweak.L", "shin_tweak.L.001", "thigh_tweak.L", "thigh_tweak.L.001",
-        "foot_tweak.R", "shin_tweak.R", "shin_tweak.R.001", "thigh_tweak.R", "thigh_tweak.R.001",
-        "foot_fk.L", "shin_fk.L", "thigh_fk.L", "toe_fk.L", "foot_fk.R", "shin_fk.R", "thigh_fk.R", "toe_fk.R",
-        "forearm_tweak.L", "forearm_tweak.L.001", "hand_tweak.L", "upper_arm_tweak.L", "upper_arm_tweak.L.001",
-        "forearm_fk.L", "hand_fk.L", "upper_arm_fk.L", "forearm_tweak.R", "forearm_tweak.R.001", "hand_tweak.R",
-        "upper_arm_tweak.R", "upper_arm_tweak.R.001", "forearm_fk.R", "hand_fk.R", "upper_arm_fk.R",
-        "f_index.01_master.L", "f_index.01_master.R", "f_middle.01_master.L", "f_middle.01_master.R",
-        "f_pinky.01_master.L", "f_pinky.01_master.R", "f_ring.01_master.L", "f_ring.01_master.R",
-        "palm.L", "palm.R", "thumb.01_master.L", "thumb.01_master.R"
-    }
 
     def find_body_mesh_in_children(self, rig):
         """
         Find the body mesh among the children of the selected armature.
-        Handles naming like: "Body", "Body.001", "Body.002", etc.
+        Handles naming like: "CC_Base_Body", "CC_Base_Body.001", "CC_Base_Body.002", etc.
         """
         mesh_children = []
         
@@ -89,7 +68,7 @@ class AH_RenameAndCleanup(bpy.types.Operator):
     def mesh_name_matches(self, mesh_name):
         """
         Check if mesh name matches the base pattern (handles .001, .002, etc.)
-        Examples: "Body" matches "Body", "Body.001", "Body.002"
+        Examples: "CC_Base_Body" matches "CC_Base_Body", "CC_Base_Body.001", "CC_Base_Body.002"
         """
         # Exact match
         if mesh_name == self.BODY_MESH_BASE_NAME:
@@ -130,8 +109,6 @@ class AH_RenameAndCleanup(bpy.types.Operator):
             rig_action.fcurves.remove(fcurve)
         
         print(f"Facial bone filtering: Kept {len(kept_bones)} facial bones, removed {len(removed_bones)} other bones")
-        print(f"Kept bones: {sorted(kept_bones)}")
-        print(f"Removed bones: {sorted(removed_bones)}")
         return len(fcurves_to_remove)
     
     def extract_bone_name_from_fcurve(self, data_path):
@@ -145,6 +122,55 @@ class AH_RenameAndCleanup(bpy.types.Operator):
         pattern = r'pose\.bones\["([^"]+)"\]'
         match = re.search(pattern, data_path)
         return match.group(1) if match else None
+
+    def generate_auto_names(self, rig_name):
+        """
+        Generate automatic action names based on rig name.
+        Pattern: CC_{FIRST3LETTERS}_RA_SPEECH_{XX} / CC_{FIRST3LETTERS}_SA_SPEECH_{XX}
+        
+        Examples:
+        - "Johnny" → "CC_JOH_RA_SPEECH_01", "CC_JOH_SA_SPEECH_01"
+        - "Sarah_Rig" → "CC_SAR_RA_SPEECH_01", "CC_SAR_SA_SPEECH_01"
+        """
+        # Extract first 3 letters from rig name (skip non-letters)
+        letters_only = ''.join(c for c in rig_name if c.isalpha())
+        char_code = letters_only[:3].upper()
+        
+        if len(char_code) < 3:
+            # Pad with X if less than 3 letters
+            char_code = char_code.ljust(3, 'X')
+        
+        # Base patterns
+        rig_pattern = f"CC_{char_code}_RA_SPEECH_"
+        shapekey_pattern = f"CC_{char_code}_SA_SPEECH_"
+        
+        # Find highest existing number for this character
+        highest_num = self.find_highest_action_number(rig_pattern, shapekey_pattern)
+        next_num = highest_num + 1
+        
+        # Generate final names with zero-padding
+        rig_action_name = f"{rig_pattern}{next_num:02d}"
+        shapekey_action_name = f"{shapekey_pattern}{next_num:02d}"
+        
+        return rig_action_name, shapekey_action_name
+    
+    def find_highest_action_number(self, rig_pattern, shapekey_pattern):
+        """
+        Find the highest existing action number for this character.
+        Looks for both RA and SA patterns and returns the highest number found.
+        """
+        highest = 0
+        
+        for action in bpy.data.actions:
+            # Check both rig and shapekey patterns
+            for pattern in [rig_pattern, shapekey_pattern]:
+                if action.name.startswith(pattern):
+                    # Extract the number at the end
+                    suffix = action.name[len(pattern):]
+                    if suffix.isdigit():
+                        highest = max(highest, int(suffix))
+        
+        return highest
 
     def execute(self, context):
         try:
@@ -177,9 +203,12 @@ class AH_RenameAndCleanup(bpy.types.Operator):
                 self.report({'ERROR'}, f"No active shapekey action found on mesh '{body_mesh.name}'.")
                 return {'CANCELLED'}
 
+            # Generate automatic names based on rig name
+            rig_action_name, shapekey_action_name = self.generate_auto_names(rig.name)
+
             # Rename the actions
-            rig_action.name = context.scene.fprops.rig_action_name
-            shapekey_action.name = context.scene.fprops.shapekey_action_name
+            rig_action.name = rig_action_name
+            shapekey_action.name = shapekey_action_name
 
             # Push rig action to NLA
             rig_nla_track = rig.animation_data.nla_tracks.new()
@@ -205,10 +234,10 @@ class AH_RenameAndCleanup(bpy.types.Operator):
             ]
 
             if self.actions_to_delete:
-                self.report({'INFO'}, f"Found '{body_mesh.name}'. Filtered {removed_fcurves} body bone F-curves. {len(self.actions_to_delete)} actions to delete.")
+                self.report({'INFO'}, f"Generated: '{rig_action_name}' & '{shapekey_action_name}'. Filtered {removed_fcurves} body bones. {len(self.actions_to_delete)} actions to delete.")
                 return context.window_manager.invoke_confirm(self, event=None)
             else:
-                self.report({'INFO'}, f"Success! Used '{body_mesh.name}', filtered {removed_fcurves} body bone F-curves. Actions organized to NLA.")
+                self.report({'INFO'}, f"Success! Generated: '{rig_action_name}' & '{shapekey_action_name}'. Filtered {removed_fcurves} body bones.")
                 return {'FINISHED'}
                 
         except Exception as e:
