@@ -23,6 +23,7 @@ from.empty_size import AH_OT_EmptySizeGrow
 from.empty_size import AH_OT_EmptySizeShrink
 from.Offset import AH_offset
 from.offset_cleanup import AH_offset_cleanup
+from.Facial_auto_processor import AH_StartAutoProcessing, AH_StopAutoProcessing, AH_AutoFacialProcessor, AH_ClearProcessedActions, AH_ToggleAutoCleanup
 
 # Define all classes that should be registered
 classes = (
@@ -48,6 +49,12 @@ classes = (
     AH_OT_EmptySizeShrink,
     AH_offset,
     AH_offset_cleanup,
+    AH_StartAutoProcessing,
+    AH_StopAutoProcessing, 
+    AH_AutoFacialProcessor,
+    AH_ClearProcessedActions,
+    AH_ToggleAutoCleanup,
+    
     
 )
 

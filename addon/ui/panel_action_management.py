@@ -37,4 +37,3 @@ class AH_ActionManagement(bpy.types.Panel):
         box.prop(fprops, 'shapekey_action_name')
         #box.prop_search(fprops, 'body_mesh_name', scene, 'objects', text="Body Mesh")
         box.operator(AH_RenameAndCleanup.bl_idname, text="Rename and Cleanup", icon='CHECKMARK')
-        
