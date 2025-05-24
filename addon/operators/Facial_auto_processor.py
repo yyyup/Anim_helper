@@ -87,9 +87,9 @@ class FacialAnimationProcessor:
         return len(fcurves_to_remove)
     
     def extract_bone_name_from_fcurve(self, data_path):
-        pattern = r'pose\.bones\["([^"]+)"\]'
-        match = re.search(pattern, data_path)
-        return match.group(1) if match else None
+        bone_pattern = r'pose\.bones\["([^"]+)"\]'
+        bone_match = re.search(bone_pattern, data_path)
+        return bone_match.group(1) if bone_match else None
 
     def generate_auto_names(self, rig_name):
         letters_only = ''.join(c for c in rig_name if c.isalpha())
@@ -151,7 +151,7 @@ class FacialAnimationProcessor:
 
             # Cleanup extra actions
             if auto_processor._auto_cleanup:
-                deleted_count = self.cleanup_extra_actions(rig_action, shapekey_action)
+                deleted_count = self.cleanup_extra_actions(rig_action, shapekey_action, old_rig_name, old_shapekey_name)
                 print(f"Deleted {deleted_count} extra actions")
 
             print(f"Success: {old_rig_name} -> {rig_action_name}")
@@ -163,31 +163,47 @@ class FacialAnimationProcessor:
             print(f"Processing error: {str(e)}")
             return False
 
-    def cleanup_extra_actions(self, rig_action, shapekey_action):
-        # Extract motion ID from rig action name
-        motion_id_pattern = r'\|(\d+)_TempMotion$'
-        match = re.search(motion_id_pattern, rig_action.name)
-        if not match:
+    def cleanup_extra_actions(self, rig_action, shapekey_action, old_rig_name, old_shapekey_name):
+        # Extract motion ID from original rig action name
+        motion_pattern = r'\|(\d+)_TempMotion$'
+        motion_match = re.search(motion_pattern, old_rig_name)
+        if not motion_match:
             return 0
         
-        motion_id = match.group(1)
-        character_prefix = rig_action.name.split('|')[0]
+        motion_id = motion_match.group(1)
+        character_prefix = old_rig_name.split('|')[0]
+        
+        print(f"Cleanup: Looking for motion ID {motion_id}, character {character_prefix}")
+        
+        # Define the exact names of the main actions we want to keep
+        main_rig_name = f"{character_prefix}|A|{motion_id}_TempMotion"
+        main_shapekey_name = f"{character_prefix}|K|Body|{motion_id}_TempMotion"
+        
+        print(f"Will protect: {main_rig_name}")
+        print(f"Will protect: {main_shapekey_name}")
         
         # Find all actions from same session
         actions_to_delete = []
+        motion_suffix = f"|{motion_id}_TempMotion"
+        
         for action in bpy.data.actions:
-            if f"|{motion_id}_TempMotion" in action.name and action.name.startswith(character_prefix):
-                # Skip main actions
-                if action == rig_action or action == shapekey_action:
-                    continue
-                # Skip renamed actions
-                if not action.name.endswith("_TempMotion"):
-                    continue
-                # Skip main rig and body actions
-                if "|A|" in action.name or "|K|Body|" in action.name:
+            if motion_suffix in action.name and action.name.startswith(character_prefix):
+                # Skip the exact main actions we want to keep
+                if (action.name == main_rig_name or 
+                    action.name == main_shapekey_name or
+                    action == rig_action or 
+                    action == shapekey_action):
+                    print(f"Protecting: {action.name}")
                     continue
                 
+                # Skip renamed actions (they don't end with _TempMotion anymore)
+                if not action.name.endswith("_TempMotion"):
+                    print(f"Protecting (renamed): {action.name}")
+                    continue
+                
+                # Everything else from this session gets deleted
                 actions_to_delete.append(action)
+                print(f"Will delete: {action.name}")
         
         # Delete extra actions
         deleted_count = 0
@@ -196,9 +212,10 @@ class FacialAnimationProcessor:
                 print(f"Deleting: {action.name}")
                 bpy.data.actions.remove(action)
                 deleted_count += 1
-            except:
-                pass
+            except Exception as e:
+                print(f"Failed to delete {action.name}: {str(e)}")
         
+        print(f"Cleanup complete: deleted {deleted_count} actions")
         return deleted_count
 
     def is_retargeted_action(self, action):
@@ -207,12 +224,12 @@ class FacialAnimationProcessor:
                 not action.name.startswith(('ott_', 'CC_Base')))
     
     def find_corresponding_shapekey_action(self, rig_action):
-        motion_id_pattern = r'\|(\d+)_TempMotion$'
-        match = re.search(motion_id_pattern, rig_action.name)
-        if not match:
+        motion_pattern = r'\|(\d+)_TempMotion$'
+        motion_match = re.search(motion_pattern, rig_action.name)
+        if not motion_match:
             return None
         
-        motion_id = match.group(1)
+        motion_id = motion_match.group(1)
         character_prefix = rig_action.name.split('|')[0]
         shapekey_name = f"{character_prefix}|K|Body|{motion_id}_TempMotion"
         return bpy.data.actions.get(shapekey_name)
