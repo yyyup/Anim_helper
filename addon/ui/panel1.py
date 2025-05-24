@@ -10,7 +10,7 @@ from ..operators.Copy_rotation import AH_CopyRotation
 from ..operators.Knot_offset import AH_KnotOffset
 from ..operators.NLA_action import AH_DuplicateSelectedBonesAction
 from ..operators.Knot import AH_Knot
-from..operators.AH_inside import AH_inside
+from ..operators.AH_inside import AH_inside
 from ..operators.AH_world import AH_world  
 from ..operators.AH_Swap import ANIM_H_OT_swap_parent_child
 from ..operators.empty_size import AH_OT_EmptySizeGrow
@@ -27,6 +27,7 @@ except ImportError:
     def get_icon_id(name):
         return 0
 
+
 class AH_AnimTools(bpy.types.Panel):
     """Animation tools panel in the 3D View sidebar"""
     bl_label = "Anim Tools"
@@ -39,19 +40,28 @@ class AH_AnimTools(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
         bakeprops = scene.bprops
+        
+        # Space Switching Tools section
+        self.draw_space_switching_section(layout)
+        
+        layout.separator()
+        
+        # Keyframe cleanup section
+        self.draw_keyframe_cleanup_section(layout, scene)
+        
+        layout.separator()
+        
+        # Animation baking section
+        self.draw_animation_baking_section(layout, bakeprops)
+
+    def draw_space_switching_section(self, layout):
+        """Draw the space switching tools section with original layout"""
         box = layout.box()
-        #grid = box.grid_flow(row_major=True, columns=1, even_columns=True, even_rows=True, align=True)
-        
-        # Reverse Hierarchy section (previously Space Switching Tools)
-        
         box.label(text="Space Switching Tools")
         
-        # Create a grid layout for the buttons in Reverse Hierarchy
-        
-        
+        # Locators subsection
         box.label(text="Locators", icon='EMPTY_ARROWS')
         col = box.column(align=True)
-        
         
         # Knot Constraint button
         row = col.row()
@@ -60,7 +70,7 @@ class AH_AnimTools(bpy.types.Panel):
         else:
             row.operator(AH_Knot.bl_idname, icon='EMPTY_ARROWS', text="Knot Constraint")
             
-        # Copy Transforms button  
+        # Copy Transforms button row
         row = col.row(align=True)
         row.operator(AH_CopyTransforms.bl_idname, icon='EMPTY_AXIS', text="T Constraint B") 
         row.operator(AH_offset.bl_idname, icon='AUTOMERGE_OFF', text="offset")
@@ -68,7 +78,7 @@ class AH_AnimTools(bpy.types.Panel):
         
         box.separator()
         
-    
+        # Parent subsection
         box.label(text="Parent", icon='ORIENTATION_PARENT')
         row = box.row(align=True)
         row = box.row()
@@ -76,13 +86,9 @@ class AH_AnimTools(bpy.types.Panel):
         row.operator(AH_world.bl_idname, icon='WORLD', text="World")
         row.operator(ANIM_H_OT_swap_parent_child.bl_idname, icon='ARROW_LEFTRIGHT', text="swap")
         
-        
-        
         box.separator()
         
-        
-         # Bonus Tools section
-        
+        # Bonus Tools subsection
         box.label(text="Bonus Tools", icon='TOOL_SETTINGS')
         row = box.row()
         row.operator(AH_offset_cleanup.bl_idname, icon='TRASH', text="cleanup")
@@ -93,22 +99,14 @@ class AH_AnimTools(bpy.types.Panel):
         
         box.separator()
         
-        
+        # Locator size subsection
         box.label(text="locator size")
         row = layout.row(align=True)       
         row.operator(AH_OT_EmptySizeGrow.bl_idname, icon='ADD', text="+")
         row.operator(AH_OT_EmptySizeShrink.bl_idname, icon='REMOVE', text="-")
-        
-        
-        
-        
-       
-        
 
-        
-        layout.separator()
-        
-        # Keyframe cleanup section
+    def draw_keyframe_cleanup_section(self, layout, scene):
+        """Draw the keyframe cleanup section with original layout"""
         box = layout.box()
         box.label(text="Keyframe Cleanup")
         
@@ -119,10 +117,9 @@ class AH_AnimTools(bpy.types.Panel):
         # Decimate Factor slider
         row = box.row()
         row.prop(scene, "Factor", slider=True)
-        
-        layout.separator()
-        
-        # Animation baking section
+
+    def draw_animation_baking_section(self, layout, bakeprops):
+        """Draw the animation baking section with original layout"""
         box = layout.box()
         box.label(text="Animation Baking")
         
@@ -157,5 +154,6 @@ class AH_AnimTools(bpy.types.Panel):
         col.prop(bakeprops, "overwrite_current_action")
 
     def draw_header(self, context):
+        """Draw panel header with icon"""
         layout = self.layout
         layout.label(icon='ARMATURE_DATA')
