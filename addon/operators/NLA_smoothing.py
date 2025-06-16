@@ -4,7 +4,7 @@ class AH_NLASmoothTransitions(bpy.types.Operator):
     """Smooth facial animation transitions in NLA strips to reduce head popping"""
     bl_idname = "anim.nla_smooth_transitions"
     bl_label = "Smooth NLA Transitions"
-    bl_description = "Add blending to NLA strips to smooth facial animation transitions"
+    bl_description = "Add blending to NLA strips to smooth facial animation transitions (SELECTED OBJECTS ONLY)"
     bl_options = {'REGISTER', 'UNDO'}
     
     # Properties
@@ -28,40 +28,45 @@ class AH_NLASmoothTransitions(bpy.types.Operator):
         default=True
     )
     
-    process_all_tracks: bpy.props.BoolProperty(
-        name="Process ALL Tracks",
-        description="Process all NLA tracks regardless of name",
-        default=True
-    )
-    
     selected_tracks_only: bpy.props.BoolProperty(
         name="Selected Tracks Only",
-        description="Only process tracks with selected strips",
+        description="Only process tracks with selected strips (within selected objects)",
         default=False
     )
     
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None
+        # Require at least one selected object
+        return len(context.selected_objects) > 0
     
     def execute(self, context):
+        # Get only selected objects
+        selected_objects = context.selected_objects
+        
+        if not selected_objects:
+            self.report({'ERROR'}, "No objects selected. Please select armatures or meshes to process.")
+            return {'CANCELLED'}
+        
         try:
             armature_strips = 0
             shapekey_strips = 0
             
             if self.process_armature:
-                armature_strips = self.process_armature_transitions(context)
+                armature_strips = self.process_selected_armature_transitions(selected_objects)
             
             if self.process_shapekeys:
-                shapekey_strips = self.process_shapekey_transitions(context)
+                shapekey_strips = self.process_selected_shapekey_transitions(selected_objects)
             
             total_strips = armature_strips + shapekey_strips
             
             if total_strips > 0:
-                message = f"Applied blending to {armature_strips} armature strips, {shapekey_strips} shape key strips"
+                object_names = [obj.name for obj in selected_objects]
+                message = f"Applied blending to {armature_strips} armature strips, {shapekey_strips} shape key strips on selected objects: {', '.join(object_names[:3])}"
+                if len(object_names) > 3:
+                    message += f" and {len(object_names) - 3} more"
                 self.report({'INFO'}, message)
             else:
-                self.report({'WARNING'}, "No strips processed. Check your NLA setup and settings.")
+                self.report({'WARNING'}, "No strips processed. Check selected objects and settings.")
             
             return {'FINISHED'}
             
@@ -69,76 +74,67 @@ class AH_NLASmoothTransitions(bpy.types.Operator):
             self.report({'ERROR'}, f"Error smoothing transitions: {str(e)}")
             return {'CANCELLED'}
     
-    def should_process_track(self, track):
-        """Determine if we should process this track"""
-        # If only processing selected tracks, check for selected strips
-        if self.selected_tracks_only:
-            return any(strip.select for strip in track.strips)
-        
-        # If processing all tracks, return True
-        if self.process_all_tracks:
-            return True
-        
-        # Otherwise, use keyword detection
-        keywords = [
-            'facial', 'speech', 'head', 'rig', 'shape', 'key',
-            'cc_', 'bri', 'ra_', 'sa_',  # Common naming patterns
-            'action', 'track', 'test'
-        ]
-        
-        track_lower = track.name.lower()
-        return any(keyword in track_lower for keyword in keywords)
-    
-    def process_armature_transitions(self, context):
-        """Process armature NLA transitions"""
+    def process_selected_armature_transitions(self, selected_objects):
+        """Process armature NLA transitions for selected objects only"""
         strips_processed = 0
         
-        for obj in context.scene.objects:
-            if obj.type != 'ARMATURE':
-                continue
-                
-            if not obj.animation_data or not obj.animation_data.nla_tracks:
+        # Only process selected armatures
+        selected_armatures = [obj for obj in selected_objects if obj.type == 'ARMATURE']
+        
+        for armature in selected_armatures:
+            if not armature.animation_data or not armature.animation_data.nla_tracks:
                 continue
             
-            for track in obj.animation_data.nla_tracks:
-                if not self.should_process_track(track):
-                    continue
+            print(f"Processing selected armature: {armature.name}")
+            
+            for track in armature.animation_data.nla_tracks:
+                # Skip if only processing selected tracks and none are selected
+                if self.selected_tracks_only:
+                    has_selected = any(strip.select for strip in track.strips)
+                    if not has_selected:
+                        continue
                 
                 strips = sorted(track.strips, key=lambda s: s.frame_start)
                 
                 if len(strips) < 2:
                     continue
                 
-                strips_processed += self.apply_strip_blending(strips)
+                strips_processed += self.apply_strip_blending(strips, armature.name, track.name)
         
         return strips_processed
     
-    def process_shapekey_transitions(self, context):
-        """Process shape key NLA transitions"""
+    def process_selected_shapekey_transitions(self, selected_objects):
+        """Process shape key NLA transitions for selected objects only"""
         strips_processed = 0
         
-        for obj in context.scene.objects:
-            if obj.type != 'MESH' or not obj.data.shape_keys:
-                continue
-            
-            shape_keys = obj.data.shape_keys
+        # Only process selected meshes with shape keys
+        selected_meshes = [obj for obj in selected_objects 
+                          if obj.type == 'MESH' and obj.data.shape_keys]
+        
+        for mesh in selected_meshes:
+            shape_keys = mesh.data.shape_keys
             if not shape_keys.animation_data or not shape_keys.animation_data.nla_tracks:
                 continue
             
+            print(f"Processing selected mesh shape keys: {mesh.name}")
+            
             for track in shape_keys.animation_data.nla_tracks:
-                if not self.should_process_track(track):
-                    continue
+                # Skip if only processing selected tracks and none are selected
+                if self.selected_tracks_only:
+                    has_selected = any(strip.select for strip in track.strips)
+                    if not has_selected:
+                        continue
                 
                 strips = sorted(track.strips, key=lambda s: s.frame_start)
                 
                 if len(strips) < 2:
                     continue
                 
-                strips_processed += self.apply_strip_blending(strips)
+                strips_processed += self.apply_strip_blending(strips, mesh.name, track.name)
         
         return strips_processed
     
-    def apply_strip_blending(self, strips):
+    def apply_strip_blending(self, strips, object_name, track_name):
         """Apply blending to a list of strips"""
         strips_processed = 0
         
@@ -154,10 +150,12 @@ class AH_NLASmoothTransitions(bpy.types.Operator):
             # Apply blend-in (except first strip)
             if i > 0:
                 strip.blend_in = blend_amount
+                print(f"  Applied blend_in={blend_amount} to '{strip.name}' in {object_name}/{track_name}")
             
             # Apply blend-out (except last strip)
             if i < len(strips) - 1:
                 strip.blend_out = blend_amount
+                print(f"  Applied blend_out={blend_amount} to '{strip.name}' in {object_name}/{track_name}")
             
             # Use REPLACE mode - facial actions should override base animation
             strip.blend_type = 'REPLACE'
@@ -171,6 +169,36 @@ class AH_NLASmoothTransitions(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         
+        # Show selected objects info
+        selected_objects = context.selected_objects
+        armatures = [obj for obj in selected_objects if obj.type == 'ARMATURE']
+        meshes = [obj for obj in selected_objects if obj.type == 'MESH' and obj.data.shape_keys]
+        
+        box = layout.box()
+        box.label(text="Selected Objects:", icon='RESTRICT_SELECT_OFF')
+        col = box.column(align=True)
+        col.scale_y = 0.8
+        
+        if armatures:
+            col.label(text=f"Armatures: {len(armatures)}")
+            for arm in armatures[:3]:
+                col.label(text=f"  • {arm.name}")
+            if len(armatures) > 3:
+                col.label(text=f"  ... and {len(armatures) - 3} more")
+        
+        if meshes:
+            col.label(text=f"Meshes with shape keys: {len(meshes)}")
+            for mesh in meshes[:3]:
+                col.label(text=f"  • {mesh.name}")
+            if len(meshes) > 3:
+                col.label(text=f"  ... and {len(meshes) - 3} more")
+        
+        if not armatures and not meshes:
+            col.alert = True
+            col.label(text="No armatures or shape key meshes selected!")
+        
+        layout.separator()
+        
         layout.prop(self, "blend_frames")
         layout.separator()
         
@@ -178,46 +206,57 @@ class AH_NLASmoothTransitions(bpy.types.Operator):
         layout.prop(self, "process_shapekeys")
         layout.separator()
         
-        layout.prop(self, "process_all_tracks")
         layout.prop(self, "selected_tracks_only")
 
 
 class AH_NLACleanTransitions(bpy.types.Operator):
-    """Remove all blending from NLA strips"""
+    """Remove all blending from NLA strips on selected objects"""
     bl_idname = "anim.nla_clean_transitions"
     bl_label = "Clean NLA Transitions"
-    bl_description = "Remove all blending from NLA strips and reset to default state"
+    bl_description = "Remove all blending from NLA strips and reset to default state (SELECTED OBJECTS ONLY)"
     bl_options = {'REGISTER', 'UNDO'}
     
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None
+        return len(context.selected_objects) > 0
     
     def execute(self, context):
+        selected_objects = context.selected_objects
+        
+        if not selected_objects:
+            self.report({'ERROR'}, "No objects selected")
+            return {'CANCELLED'}
+        
         strips_cleaned = 0
         
-        # Clean armature strips
-        for obj in context.scene.objects:
-            if obj.type == 'ARMATURE' and obj.animation_data and obj.animation_data.nla_tracks:
-                for track in obj.animation_data.nla_tracks:
+        # Clean armature strips on selected objects only
+        selected_armatures = [obj for obj in selected_objects if obj.type == 'ARMATURE']
+        for armature in selected_armatures:
+            if armature.animation_data and armature.animation_data.nla_tracks:
+                for track in armature.animation_data.nla_tracks:
                     for strip in track.strips:
                         strip.blend_in = 0
                         strip.blend_out = 0
                         strip.blend_type = 'REPLACE'
                         strips_cleaned += 1
         
-        # Clean shape key strips
-        for obj in context.scene.objects:
-            if (obj.type == 'MESH' and 
-                obj.data.shape_keys and 
-                obj.data.shape_keys.animation_data and
-                obj.data.shape_keys.animation_data.nla_tracks):
-                for track in obj.data.shape_keys.animation_data.nla_tracks:
+        # Clean shape key strips on selected objects only
+        selected_meshes = [obj for obj in selected_objects 
+                          if obj.type == 'MESH' and obj.data.shape_keys]
+        for mesh in selected_meshes:
+            shape_keys = mesh.data.shape_keys
+            if shape_keys.animation_data and shape_keys.animation_data.nla_tracks:
+                for track in shape_keys.animation_data.nla_tracks:
                     for strip in track.strips:
                         strip.blend_in = 0
                         strip.blend_out = 0
                         strip.blend_type = 'REPLACE'
                         strips_cleaned += 1
         
-        self.report({'INFO'}, f"Cleaned {strips_cleaned} strips")
+        object_names = [obj.name for obj in selected_objects]
+        message = f"Cleaned {strips_cleaned} strips on selected objects: {', '.join(object_names[:3])}"
+        if len(object_names) > 3:
+            message += f" and {len(object_names) - 3} more"
+        
+        self.report({'INFO'}, message)
         return {'FINISHED'}

@@ -12,19 +12,24 @@ class AH_NLASmoothingPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         
-        # Check if we have NLA data
-        has_nla = self.check_nla_data(context)
+        # Check if we have selected objects with NLA data
+        selected_info = self.get_selected_nla_info(context)
         
         # Head transition smoothing section
         box = layout.box()
         box.label(text="Facial Transition Smoothing", icon='SMOOTHCURVE')
         
-        if has_nla:
-            # Instructions
+        # Show selected objects info
+        if selected_info['armatures'] or selected_info['meshes']:
             col = box.column(align=True)
             col.scale_y = 0.8
-            col.label(text="Fix head/face popping between")
-            col.label(text="facial animation strips:")
+            col.label(text="Selected objects:")
+            
+            if selected_info['armatures']:
+                col.label(text=f"  • {selected_info['armatures']} armature(s)")
+            if selected_info['meshes']:
+                col.label(text=f"  • {selected_info['meshes']} mesh(es) with shape keys")
+            col.label(text=f"  • {selected_info['total_strips']} NLA strips total")
             
             box.separator()
             
@@ -32,7 +37,7 @@ class AH_NLASmoothingPanel(bpy.types.Panel):
             row = box.row()
             row.scale_y = 1.3
             row.operator(AH_NLASmoothTransitions.bl_idname, 
-                        text="Smooth Transitions", 
+                        text="Smooth Selected Objects", 
                         icon='SMOOTHCURVE')
             
             box.separator()
@@ -47,7 +52,6 @@ class AH_NLASmoothingPanel(bpy.types.Panel):
                             text="Light (3f)", 
                             icon='KEYTYPE_KEYFRAME_VEC')
             op.blend_frames = 3
-            op.process_all_tracks = True
             
             # Medium blending (5 frames)
             row = col.row()
@@ -55,7 +59,6 @@ class AH_NLASmoothingPanel(bpy.types.Panel):
                             text="Medium (5f)", 
                             icon='KEYTYPE_BREAKDOWN_VEC')
             op.blend_frames = 5
-            op.process_all_tracks = True
             
             # Heavy blending (8 frames)
             row = col.row()
@@ -63,7 +66,6 @@ class AH_NLASmoothingPanel(bpy.types.Panel):
                             text="Heavy (8f)", 
                             icon='KEYTYPE_EXTREME_VEC')
             op.blend_frames = 8
-            op.process_all_tracks = True
             
             box.separator()
             
@@ -73,105 +75,58 @@ class AH_NLASmoothingPanel(bpy.types.Panel):
             row.operator(AH_NLACleanTransitions.bl_idname, 
                         text="Remove All Blending", 
                         icon='TRASH')
-            
-            # Show NLA info
-            nla_info = self.get_nla_info(context)
-            if nla_info['total_tracks'] > 0:
-                box.separator()
-                col = box.column(align=True)
-                col.scale_y = 0.8
-                col.label(text=f"Found: {nla_info['armature_tracks']} armature tracks")
-                col.label(text=f"       {nla_info['shapekey_tracks']} shape key tracks")
-                col.label(text=f"       {nla_info['total_strips']} total strips")
         
         else:
-            # No NLA data available
+            # No valid selected objects
             col = box.column(align=True)
             col.scale_y = 0.9
-            if not context.active_object:
-                col.label(text="No object selected", icon='ERROR')
-            elif not self.has_any_nla_tracks(context):
-                col.label(text="No NLA tracks found", icon='ERROR')
-                col.label(text="Process facial animations first")
+            
+            if not context.selected_objects:
+                col.label(text="No objects selected", icon='ERROR')
+                col.label(text="Select armatures or meshes with shape keys")
             else:
-                col.label(text="Select object with NLA tracks", icon='INFO')
+                # Show what's selected but not valid
+                selected_types = set(obj.type for obj in context.selected_objects)
+                col.label(text="Selected objects have no NLA data", icon='INFO')
+                col.label(text=f"Selected types: {', '.join(selected_types)}")
+                col.label(text="Need: Armatures or Meshes with shape keys")
         
-        # Tips section
+        # Instructions section
         layout.separator()
         box = layout.box()
-        box.label(text="💡 Usage Tips", icon='INFO')
+        box.label(text="💡 How to Use", icon='INFO')
         col = box.column(align=True)
         col.scale_y = 0.8
+        col.label(text="1. Select character armature(s)")
+        col.label(text="2. Or select mesh(es) with shape keys")
+        col.label(text="3. Choose blending strength")
+        col.label(text="4. Only selected objects are affected")
         col.label(text="• Start with 'Medium (5f)' for most cases")
-        col.label(text="• Use 'Light (3f)' for subtle transitions")
-        col.label(text="• Use 'Heavy (8f)' for dramatic smoothing")
-        col.label(text="• Works on both bones and shape keys")
         col.label(text="• Uses REPLACE mode for proper override")
     
-    def check_nla_data(self, context):
-        """Check if scene has usable NLA data"""
-        if not context.active_object:
-            return False
-        
-        # Check for armature NLA
-        if context.active_object.type == 'ARMATURE':
-            if (context.active_object.animation_data and 
-                context.active_object.animation_data.nla_tracks):
-                return True
-        
-        # Check for any NLA data in scene
-        return self.has_any_nla_tracks(context)
-    
-    def has_any_nla_tracks(self, context):
-        """Check if any object in scene has NLA tracks"""
-        for obj in context.scene.objects:
-            # Check armatures
-            if (obj.type == 'ARMATURE' and 
-                obj.animation_data and 
-                obj.animation_data.nla_tracks):
-                return True
-            
-            # Check shape keys
-            if (obj.type == 'MESH' and 
-                obj.data.shape_keys and 
-                obj.data.shape_keys.animation_data and
-                obj.data.shape_keys.animation_data.nla_tracks):
-                return True
-        
-        return False
-    
-    def get_nla_info(self, context):
-        """Get summary of NLA data in scene"""
+    def get_selected_nla_info(self, context):
+        """Get info about selected objects with NLA data"""
         info = {
-            'armature_tracks': 0,
-            'shapekey_tracks': 0,
-            'total_tracks': 0,
+            'armatures': 0,
+            'meshes': 0,
             'total_strips': 0
         }
         
-        for obj in context.scene.objects:
-            # Count armature tracks
-            if (obj.type == 'ARMATURE' and 
-                obj.animation_data and 
-                obj.animation_data.nla_tracks):
-                track_count = len(obj.animation_data.nla_tracks)
-                info['armature_tracks'] += track_count
-                info['total_tracks'] += track_count
-                
-                for track in obj.animation_data.nla_tracks:
-                    info['total_strips'] += len(track.strips)
+        for obj in context.selected_objects:
+            if obj.type == 'ARMATURE':
+                if (obj.animation_data and obj.animation_data.nla_tracks):
+                    info['armatures'] += 1
+                    # Count strips
+                    for track in obj.animation_data.nla_tracks:
+                        info['total_strips'] += len(track.strips)
             
-            # Count shape key tracks
-            if (obj.type == 'MESH' and 
-                obj.data.shape_keys and 
-                obj.data.shape_keys.animation_data and
-                obj.data.shape_keys.animation_data.nla_tracks):
-                track_count = len(obj.data.shape_keys.animation_data.nla_tracks)
-                info['shapekey_tracks'] += track_count
-                info['total_tracks'] += track_count
-                
-                for track in obj.data.shape_keys.animation_data.nla_tracks:
-                    info['total_strips'] += len(track.strips)
+            elif obj.type == 'MESH' and obj.data.shape_keys:
+                if (obj.data.shape_keys.animation_data and 
+                    obj.data.shape_keys.animation_data.nla_tracks):
+                    info['meshes'] += 1
+                    # Count strips
+                    for track in obj.data.shape_keys.animation_data.nla_tracks:
+                        info['total_strips'] += len(track.strips)
         
         return info
     
