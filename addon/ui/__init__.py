@@ -6,6 +6,8 @@ from .panel2 import AH_MaterialTools
 from .panel_action_management import AH_ActionManagement
 from .panel_facial_auto import AH_FacialAutoProcessingPanel
 from.panel_nla_transfer import AH_NLATransferPanel
+from.panel_nla_smoothing import AH_NLASmoothingPanel
+from .panel_audio_nla_consolidation import AH_AudioNLAConsolidationPanel
 
 # Add panels to classes array
 classes = (
@@ -14,6 +16,8 @@ classes = (
     AH_ActionManagement,
     AH_FacialAutoProcessingPanel,
     AH_NLATransferPanel,
+    AH_NLASmoothingPanel,
+    AH_AudioNLAConsolidationPanel,
 )
 
 def register_panels():

@@ -26,7 +26,8 @@ from.offset_cleanup import AH_offset_cleanup
 from.Facial_auto_processor import AH_StartAutoProcessing, AH_StopAutoProcessing, AH_AutoFacialProcessor, AH_ClearProcessedActions, AH_ToggleAutoCleanup, AH_SetLanguageSuffix
 from.BakeToBones import AH_BakeToBones
 from.NLA_transfer import AH_TransferNLAStrips, AH_TransferShapeKeyNLA, AH_CleanupAppendedCharacter
-
+from.NLA_smoothing import AH_NLASmoothTransitions, AH_NLACleanTransitions
+from.Audio_NLA_consolidation import AH_ConsolidateAudioNLA
 # Define all classes that should be registered
 classes = (
     AH_AnimationBake,
@@ -61,6 +62,9 @@ classes = (
     AH_TransferNLAStrips,
     AH_TransferShapeKeyNLA,
     AH_CleanupAppendedCharacter,
+    AH_NLASmoothTransitions,
+    AH_NLACleanTransitions,
+    AH_ConsolidateAudioNLA,
     
 )
 
