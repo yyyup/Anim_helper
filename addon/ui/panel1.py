@@ -17,6 +17,7 @@ from ..operators.empty_size import AH_OT_EmptySizeGrow
 from ..operators.empty_size import AH_OT_EmptySizeShrink
 from ..operators.Offset import AH_offset
 from ..operators.offset_cleanup import AH_offset_cleanup
+from..operators.BakeToBones import AH_BakeToBones
 
 # Import icon utilities safely with fallback
 try:
@@ -96,6 +97,9 @@ class AH_AnimTools(bpy.types.Panel):
         # Shoulder Lock button in Bonus Tools
         row = box.row()
         row.operator(AH_ShoulderLock.bl_idname, icon='CONSTRAINT_BONE', text="Shoulder Lock")
+        
+        row = box.row()
+        row.operator(AH_BakeToBones.bl_idname, icon='CONSTRAINT_BONE', text="bake to bones")
         
         box.separator()
         

@@ -24,6 +24,8 @@ from.empty_size import AH_OT_EmptySizeShrink
 from.Offset import AH_offset
 from.offset_cleanup import AH_offset_cleanup
 from.Facial_auto_processor import AH_StartAutoProcessing, AH_StopAutoProcessing, AH_AutoFacialProcessor, AH_ClearProcessedActions, AH_ToggleAutoCleanup
+from.BakeToBones import AH_BakeToBones
+from.NLA_transfer import AH_TransferNLAStrips, AH_TransferShapeKeyNLA, AH_CleanupAppendedCharacter
 
 # Define all classes that should be registered
 classes = (
@@ -54,7 +56,10 @@ classes = (
     AH_AutoFacialProcessor,
     AH_ClearProcessedActions,
     AH_ToggleAutoCleanup,
-    
+    AH_BakeToBones,
+    AH_TransferNLAStrips,
+    AH_TransferShapeKeyNLA,
+    AH_CleanupAppendedCharacter,
     
 )
 
