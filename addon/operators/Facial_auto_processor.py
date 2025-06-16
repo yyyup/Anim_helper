@@ -9,6 +9,7 @@ class AH_AutoProcessor:
     _rig = None
     _check_interval = 2.0
     _auto_cleanup = True
+    _suffix = ""  # New: Store the optional suffix
     
     def __new__(cls):
         if cls._instance is None:
@@ -26,6 +27,7 @@ class AH_AutoProcessor:
         self._processed_actions.clear()
         self._timer = None
         self._rig = None
+        # Don't reset suffix - user might want to keep it
 
 auto_processor = AH_AutoProcessor()
 
@@ -91,26 +93,47 @@ class FacialAnimationProcessor:
         bone_match = re.search(bone_pattern, data_path)
         return bone_match.group(1) if bone_match else None
 
-    def generate_auto_names(self, rig_name):
+    def generate_auto_names(self, rig_name, suffix=""):
+        """Generate automatic names with optional suffix
+        
+        Args:
+            rig_name: Name of the rig
+            suffix: Optional suffix like "_FR", "_SP", "_IT" etc.
+        """
         letters_only = ''.join(c for c in rig_name if c.isalpha())
         char_code = letters_only[:3].upper()
         if len(char_code) < 3:
             char_code = char_code.ljust(3, 'X')
         
+        # Clean up suffix - ensure it starts with underscore if provided
+        if suffix and not suffix.startswith('_'):
+            suffix = '_' + suffix
+        
         rig_pattern = f"CC_{char_code}_RA_SPEECH_"
         shapekey_pattern = f"CC_{char_code}_SA_SPEECH_"
         
+        # Find highest existing number for this character and suffix combination
         highest_num = 0
         for action in bpy.data.actions:
             for pattern in [rig_pattern, shapekey_pattern]:
                 if action.name.startswith(pattern):
-                    suffix = action.name[len(pattern):]
-                    if suffix.isdigit():
-                        highest_num = max(highest_num, int(suffix))
+                    # Extract the part after the pattern
+                    remainder = action.name[len(pattern):]
+                    
+                    # Check if it matches our suffix pattern
+                    if suffix:
+                        # Looking for pattern like "01_FR" or "02_SP"
+                        match = re.match(r'^(\d+)' + re.escape(suffix) + r'$', remainder)
+                        if match:
+                            highest_num = max(highest_num, int(match.group(1)))
+                    else:
+                        # No suffix - looking for pattern like "01" or "02"
+                        if remainder.isdigit():
+                            highest_num = max(highest_num, int(remainder))
         
         next_num = highest_num + 1
-        rig_action_name = f"{rig_pattern}{next_num:02d}"
-        shapekey_action_name = f"{shapekey_pattern}{next_num:02d}"
+        rig_action_name = f"{rig_pattern}{next_num:02d}{suffix}"
+        shapekey_action_name = f"{shapekey_pattern}{next_num:02d}{suffix}"
         
         return rig_action_name, shapekey_action_name
 
@@ -125,8 +148,8 @@ class FacialAnimationProcessor:
                 print(f"Error: {error_msg}")
                 return False
 
-            # Generate names
-            rig_action_name, shapekey_action_name = self.generate_auto_names(rig.name)
+            # Generate names with suffix from auto_processor
+            rig_action_name, shapekey_action_name = self.generate_auto_names(rig.name, auto_processor._suffix)
 
             # Rename actions
             old_rig_name = rig_action.name
@@ -235,6 +258,42 @@ class FacialAnimationProcessor:
         return bpy.data.actions.get(shapekey_name)
 
 
+class AH_SetLanguageSuffix(bpy.types.Operator):
+    """Set optional language suffix for facial animation naming"""
+    bl_idname = "object.set_language_suffix"
+    bl_label = "Set Language Suffix"
+    bl_description = "Set optional language suffix (e.g., FR, SP, IT) for facial animation naming"
+    bl_options = {'REGISTER'}
+    
+    suffix: bpy.props.StringProperty(
+        name="Language Suffix",
+        description="Optional language suffix (e.g., FR, SP, IT). Leave empty for no suffix",
+        default=""
+    )
+    
+    def execute(self, context):
+        # Clean up the suffix
+        cleaned_suffix = self.suffix.strip().upper()
+        
+        # Remove any leading underscores since we'll add them in generate_auto_names
+        if cleaned_suffix.startswith('_'):
+            cleaned_suffix = cleaned_suffix[1:]
+        
+        auto_processor._suffix = cleaned_suffix
+        
+        if cleaned_suffix:
+            self.report({'INFO'}, f"Language suffix set to: {cleaned_suffix}")
+        else:
+            self.report({'INFO'}, "Language suffix cleared")
+        
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        # Pre-fill with current suffix
+        self.suffix = auto_processor._suffix
+        return context.window_manager.invoke_props_dialog(self)
+
+
 class AH_StartAutoProcessing(bpy.types.Operator):
     bl_idname = "object.start_auto_processing"
     bl_label = "Start Auto-Processing"
@@ -257,7 +316,8 @@ class AH_StartAutoProcessing(bpy.types.Operator):
         auto_processor._timer = context.window_manager.event_timer_add(2.0, window=context.window)
         context.window_manager.modal_handler_add(self)
         
-        self.report({'INFO'}, f"Auto-processing started for {context.object.name}")
+        suffix_info = f" with suffix '_{auto_processor._suffix}'" if auto_processor._suffix else ""
+        self.report({'INFO'}, f"Auto-processing started for {context.object.name}{suffix_info}")
         return {'RUNNING_MODAL'}
     
     def modal(self, context, event):
@@ -328,7 +388,8 @@ class AH_AutoFacialProcessor(bpy.types.Operator):
                 if shapekey_action:
                     success = processor.auto_process_single_animation(context.object, action, shapekey_action)
                     if success:
-                        self.report({'INFO'}, "Animation processed successfully!")
+                        suffix_info = f" with suffix '_{auto_processor._suffix}'" if auto_processor._suffix else ""
+                        self.report({'INFO'}, f"Animation processed successfully{suffix_info}!")
                         return {'FINISHED'}
         
         self.report({'ERROR'}, "No retargeted actions found")

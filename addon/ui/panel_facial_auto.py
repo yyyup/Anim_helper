@@ -1,5 +1,5 @@
 import bpy
-from ..operators.Facial_auto_processor import AH_AutoProcessor, AH_StartAutoProcessing, AH_StopAutoProcessing, AH_AutoFacialProcessor, AH_ClearProcessedActions, AH_ToggleAutoCleanup
+from ..operators.Facial_auto_processor import AH_AutoProcessor, AH_StartAutoProcessing, AH_StopAutoProcessing, AH_AutoFacialProcessor, AH_ClearProcessedActions, AH_ToggleAutoCleanup, AH_SetLanguageSuffix
 
 class AH_FacialAutoProcessingPanel(bpy.types.Panel):
     """Panel for auto-processing controls"""
@@ -25,6 +25,12 @@ class AH_FacialAutoProcessingPanel(bpy.types.Panel):
                 box.label(text=f"Monitoring: {auto_proc._rig.name}")
             box.label(text=f"Processed: {len(auto_proc._processed_actions)} animations")
             
+            # Show current suffix
+            if auto_proc._suffix:
+                box.label(text=f"Language: {auto_proc._suffix}", icon='WORLD')
+            else:
+                box.label(text="Language: None", icon='WORLD')
+            
             # Show cleanup status
             cleanup_status = "ON" if auto_proc._auto_cleanup else "OFF"
             cleanup_icon = 'CHECKMARK' if auto_proc._auto_cleanup else 'X'
@@ -47,6 +53,11 @@ class AH_FacialAutoProcessingPanel(bpy.types.Panel):
             layout.separator()
             box = layout.box()
             box.label(text="Settings")
+            
+            # Language suffix setting (always available)
+            row = box.row()
+            row.operator(AH_SetLanguageSuffix.bl_idname, icon='WORLD', text="Set Language Suffix")
+            
             row = box.row()
             cleanup_text = "Disable Auto-cleanup" if auto_proc._auto_cleanup else "Enable Auto-cleanup"
             cleanup_icon = 'CANCEL' if auto_proc._auto_cleanup else 'CHECKMARK'
@@ -61,15 +72,28 @@ class AH_FacialAutoProcessingPanel(bpy.types.Panel):
             col = box.column(align=True)
             col.label(text="Workflow:")
             col.label(text="1. Select your character rig")
-            col.label(text="2. Click 'Start Auto-Processing'")
-            col.label(text="3. Retarget your animations")
-            col.label(text="4. Actions auto-organize to NLA!")
+            col.label(text="2. Set language suffix (optional)")
+            col.label(text="3. Click 'Start Auto-Processing'")
+            col.label(text="4. Retarget your animations")
+            col.label(text="5. Actions auto-organize to NLA!")
             
             layout.separator()
             
             # Settings section
             box = layout.box()
             box.label(text="Settings")
+            
+            # Language suffix setting
+            row = box.row()
+            row.operator(AH_SetLanguageSuffix.bl_idname, icon='WORLD', text="Set Language Suffix")
+            
+            # Show current suffix status
+            if auto_proc._suffix:
+                row = box.row()
+                row.label(text=f"Current: {auto_proc._suffix}", icon='CHECKMARK')
+            else:
+                row = box.row()
+                row.label(text="Current: None", icon='BLANK1')
             
             # Auto-cleanup toggle
             row = box.row()
@@ -89,6 +113,18 @@ class AH_FacialAutoProcessingPanel(bpy.types.Panel):
             col.label(text="• TearLine, Tongue, Eye animations")
             col.label(text="• Hat, Sword, Hair accessories")
             col.label(text="• Other empty/unnecessary retargeted actions")
+            
+            # Info about language suffixes
+            layout.separator()
+            box = layout.box()
+            box.label(text="Language Suffixes", icon='WORLD')
+            col = box.column(align=True)
+            col.scale_y = 0.8
+            col.label(text="Examples:")
+            col.label(text="• FR for French → CC_JOH_RA_SPEECH_01_FR")
+            col.label(text="• SP for Spanish → CC_JOH_SA_SPEECH_01_SP")
+            col.label(text="• IT for Italian → CC_JOH_RA_SPEECH_01_IT")
+            col.label(text="• Leave empty for no suffix")
             
             layout.separator()
             
