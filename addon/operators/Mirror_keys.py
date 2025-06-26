@@ -1,6 +1,41 @@
 import bpy
 from mathutils import Quaternion, Euler
 
+
+def get_or_create_fcurve(action, data_path, index):
+    """Return existing fcurve or create a new one."""
+    fcurve = action.fcurves.find(data_path, index=index)
+    if fcurve is None:
+        fcurve = action.fcurves.new(data_path, index=index)
+    return fcurve
+
+
+def calculate_mirrored_value(fcurve, pose_bone, keyframe):
+    """Calculate mirrored keyframe value based on property type."""
+    if "location" in fcurve.data_path:
+        return -keyframe.co[1] if fcurve.array_index == 0 else keyframe.co[1]
+    if "rotation_quaternion" in fcurve.data_path:
+        return -keyframe.co[1] if fcurve.array_index == 1 else keyframe.co[1]
+    if "rotation_euler" in fcurve.data_path:
+        euler_rotation = Euler(
+            (
+                fcurve.evaluate(keyframe.co[0]) if fcurve.array_index == 0 else pose_bone.rotation_euler[0],
+                fcurve.evaluate(keyframe.co[0]) if fcurve.array_index == 1 else pose_bone.rotation_euler[1],
+                fcurve.evaluate(keyframe.co[0]) if fcurve.array_index == 2 else pose_bone.rotation_euler[2],
+            ),
+            pose_bone.rotation_mode,
+        )
+        mirrored_euler = Euler(
+            (euler_rotation.x, -euler_rotation.y, -euler_rotation.z),
+            pose_bone.rotation_mode,
+        )
+        if fcurve.array_index == 0:
+            return mirrored_euler.x
+        if fcurve.array_index == 1:
+            return mirrored_euler.y
+        return mirrored_euler.z
+    return keyframe.co[1]
+
 class AH_MirrorBoneKeyframes(bpy.types.Operator):
     """Mirror keyframes from one bone to its opposite side bone (e.g., from left to right)"""
     bl_idname = "anim.mirror_bone_keyframes"
@@ -73,54 +108,13 @@ class AH_MirrorBoneKeyframes(bpy.types.Operator):
                     opposite_data_path = fcurve.data_path.replace(selected_bone_name, opposite_bone_name)
                     
                     # Find or create the opposite fcurve
-                    opposite_fcurve = action.fcurves.find(opposite_data_path, index=fcurve.array_index)
-                    
-                    # If the opposite fcurve doesn't exist, create it
-                    if opposite_fcurve is None:
-                        opposite_fcurve = action.fcurves.new(opposite_data_path, index=fcurve.array_index)
+                    opposite_fcurve = get_or_create_fcurve(action, opposite_data_path, fcurve.array_index)
+                    if len(opposite_fcurve.keyframe_points) == 0:
                         fcurves_created += 1
 
                     # Mirror the keyframes
                     for keyframe in fcurve.keyframe_points:
-                        # Determine the mirrored value based on the property type
-                        if "location" in fcurve.data_path:
-                            # For location, mirror the X axis (index 0)
-                            if fcurve.array_index == 0:  # X-axis
-                                mirrored_value = -keyframe.co[1]
-                            else:
-                                mirrored_value = keyframe.co[1]
-                        elif "rotation_quaternion" in fcurve.data_path:
-                            # For quaternions, the X component needs flipping (index 1)
-                            if fcurve.array_index == 1:  # X component
-                                mirrored_value = -keyframe.co[1]
-                            else:
-                                mirrored_value = keyframe.co[1]
-                        elif "rotation_euler" in fcurve.data_path:
-                            # Get all Euler components to create a full rotation
-                            euler_rotation = Euler((
-                                fcurve.evaluate(keyframe.co[0]) if fcurve.array_index == 0 else pose_bone.rotation_euler[0],
-                                fcurve.evaluate(keyframe.co[0]) if fcurve.array_index == 1 else pose_bone.rotation_euler[1],
-                                fcurve.evaluate(keyframe.co[0]) if fcurve.array_index == 2 else pose_bone.rotation_euler[2]
-                            ), pose_bone.rotation_mode)
-
-                            # Mirror the Euler rotation for symmetrical movement
-                            # For standard T-pose character, we need to negate Y and Z
-                            mirrored_euler = Euler((
-                                euler_rotation.x,
-                                -euler_rotation.y,
-                                -euler_rotation.z
-                            ), pose_bone.rotation_mode)
-
-                            # Get the value for the current axis
-                            if fcurve.array_index == 0:
-                                mirrored_value = mirrored_euler.x
-                            elif fcurve.array_index == 1:
-                                mirrored_value = mirrored_euler.y
-                            elif fcurve.array_index == 2:
-                                mirrored_value = mirrored_euler.z
-                        else:
-                            # For other properties, use the original value
-                            mirrored_value = keyframe.co[1]
+                        mirrored_value = calculate_mirrored_value(fcurve, pose_bone, keyframe)
 
                         # Add or update the keyframe in the opposite fcurve
                         keypoint = opposite_fcurve.keyframe_points.insert(
