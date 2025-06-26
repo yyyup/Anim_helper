@@ -4,6 +4,7 @@ import bpy
 from .panel1 import AH_AnimTools, AH_PT_SpaceSwitching, AH_PT_KeyframeCleanup, AH_PT_AnimationBaking, AH_PT_AnimToolsHelp
 from .panel2 import AH_MaterialTools
 from .panel_action_management import AH_ActionManagement
+from .panel_pose_library import AH_PoseLibraryPanel
 from .panel_facial_auto import AH_FacialAutoProcessingPanel
 from.panel_nla_transfer import AH_NLATransferPanel
 from.panel_nla_smoothing import AH_NLASmoothingPanel
@@ -19,6 +20,7 @@ classes = (
     AH_PT_AnimationBaking,
     AH_PT_AnimToolsHelp,
     AH_ActionManagement,
+    AH_PoseLibraryPanel,
     AH_FacialAutoProcessingPanel,
     AH_NLATransferPanel,
     AH_NLASmoothingPanel,

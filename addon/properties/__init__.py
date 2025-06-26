@@ -3,12 +3,14 @@ import bpy
 from .bake_properties import AH_BakeProperties
 from .facial_properties import AH_FacialProperties
 from .action_properties import AH_ActionProperties
+from .pose_library_properties import AH_PoseLibraryProperties
 
 # List of all property groups to register
 property_classes = (
     AH_BakeProperties,
     AH_FacialProperties,
     AH_ActionProperties,
+    AH_PoseLibraryProperties,
 )
 
 def register_properties():
@@ -22,6 +24,7 @@ def register_properties():
     bpy.types.Scene.bprops = bpy.props.PointerProperty(type=AH_BakeProperties)
     bpy.types.Scene.fprops = bpy.props.PointerProperty(type=AH_FacialProperties)
     bpy.types.Scene.Dprops = bpy.props.PointerProperty(type=AH_ActionProperties)
+    bpy.types.Scene.poseprops = bpy.props.PointerProperty(type=AH_PoseLibraryProperties)
     
     # Add Factor property for decimation
     bpy.types.Scene.Factor = bpy.props.FloatProperty(
@@ -39,6 +42,7 @@ def unregister_properties():
     del bpy.types.Scene.Dprops
     del bpy.types.Scene.fprops
     del bpy.types.Scene.bprops
+    del bpy.types.Scene.poseprops
     
     # Unregister classes
     from bpy.utils import unregister_class

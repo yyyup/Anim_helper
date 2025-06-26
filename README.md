@@ -30,6 +30,9 @@ The main panel now groups its sections into collapsible subpanels so you can hid
 ### Action Management
 - **Delete Actions by Keyword**: Easily remove multiple actions based on a keyword
 
+### Pose Library
+- **Apply Poses Quickly**: Search and apply poses from the active object's pose library
+
 ## Installation
 
 1. Download the latest release (zip file)
