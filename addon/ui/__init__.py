@@ -1,18 +1,23 @@
 import bpy
 
 # Import panels with updated class names
-from .panel1 import AH_AnimTools
+from .panel1 import AH_AnimTools, AH_PT_SpaceSwitching, AH_PT_KeyframeCleanup, AH_PT_AnimationBaking, AH_PT_AnimToolsHelp
 from .panel2 import AH_MaterialTools
 from .panel_action_management import AH_ActionManagement
 from .panel_facial_auto import AH_FacialAutoProcessingPanel
 from.panel_nla_transfer import AH_NLATransferPanel
 from.panel_nla_smoothing import AH_NLASmoothingPanel
 from .panel_audio_nla_consolidation import AH_AudioNLAConsolidationPanel
+from ..preferences import update_panel_categories
 
 # Add panels to classes array
 classes = (
     AH_MaterialTools,
     AH_AnimTools,
+    AH_PT_SpaceSwitching,
+    AH_PT_KeyframeCleanup,
+    AH_PT_AnimationBaking,
+    AH_PT_AnimToolsHelp,
     AH_ActionManagement,
     AH_FacialAutoProcessingPanel,
     AH_NLATransferPanel,
@@ -25,6 +30,7 @@ def register_panels():
     from bpy.utils import register_class
     for cls in classes:
         register_class(cls)
+    update_panel_categories()
 
 def unregister_panels():
     """Unregister all panel classes"""
