@@ -30,30 +30,28 @@ except ImportError:
 
 
 class AH_AnimTools(bpy.types.Panel):
-    """Animation tools panel in the 3D View sidebar"""
+    """Root panel for animation tools"""
     bl_label = "Anim Tools"
     bl_idname = "AH_PT_AnimTools"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'AH Helper'
-    
+
+    def draw(self, context):
+        self.layout.label(text="Tools for animation workflow")
+
+class AH_PT_SpaceSwitching(bpy.types.Panel):
+    bl_label = "Space Switching"
+    bl_idname = "AH_PT_SpaceSwitching"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'AH Helper'
+    bl_parent_id = "AH_PT_AnimTools"
+    bl_options = {'DEFAULT_CLOSED'}
+
     def draw(self, context):
         layout = self.layout
-        scene = context.scene
-        bakeprops = scene.bprops
-        
-        # Space Switching Tools section
         self.draw_space_switching_section(layout)
-        
-        layout.separator()
-        
-        # Keyframe cleanup section
-        self.draw_keyframe_cleanup_section(layout, scene)
-        
-        layout.separator()
-        
-        # Animation baking section
-        self.draw_animation_baking_section(layout, bakeprops)
 
     def draw_space_switching_section(self, layout):
         """Draw the space switching tools section with original layout"""
@@ -109,55 +107,89 @@ class AH_AnimTools(bpy.types.Panel):
         row.operator(AH_OT_EmptySizeGrow.bl_idname, icon='ADD', text="+")
         row.operator(AH_OT_EmptySizeShrink.bl_idname, icon='REMOVE', text="-")
 
-    def draw_keyframe_cleanup_section(self, layout, scene):
-        """Draw the keyframe cleanup section with original layout"""
+class AH_PT_KeyframeCleanup(bpy.types.Panel):
+    bl_label = "Keyframe Cleanup"
+    bl_idname = "AH_PT_KeyframeCleanup"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'AH Helper'
+    bl_parent_id = "AH_PT_AnimTools"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+
         box = layout.box()
         box.label(text="Keyframe Cleanup")
-        
-        # Decimate Keyframes button
+
         row = box.row()
         row.operator(AH_DecimateKeys.bl_idname, icon='COLORSET_02_VEC', text="Decimate Keyframes")
-        
-        # Decimate Factor slider
+
         row = box.row()
         row.prop(scene, "Factor", slider=True)
+class AH_PT_AnimationBaking(bpy.types.Panel):
+    bl_label = "Animation Baking"
+    bl_idname = "AH_PT_AnimationBaking"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'AH Helper'
+    bl_parent_id = "AH_PT_AnimTools"
+    bl_options = {'DEFAULT_CLOSED'}
 
-    def draw_animation_baking_section(self, layout, bakeprops):
-        """Draw the animation baking section with original layout"""
+    def draw(self, context):
+        layout = self.layout
+        bakeprops = context.scene.bprops
+
         box = layout.box()
         box.label(text="Animation Baking")
-        
-        # Easy Bake Animation button (in alert/red style)
+
         row = box.row()
         row.alert = True
         row.operator(AH_AnimationBake.bl_idname, icon='REC', text="Easy Bake Animation")
-        
-        # Duplicate Selected Bones Action button
+
         row = box.row()
         row.operator(AH_DuplicateSelectedBonesAction.bl_idname, icon='COLORSET_09_VEC', text="Duplicate Selected Bones Action")
-        
-        # Baking Options section (collapsible)
+
         box.prop(bakeprops, "smart_bake", text="Smart Bake")
-        
+
         if not bakeprops.smart_bake:
             row = box.row(align=True)
             row.prop(bakeprops, "custom_frame_start", text="Start")
             row.prop(bakeprops, "custom_frame_end", text="End")
-        
-        # Keying Options subsection
+
         box.label(text="Keying Options:")
         col = box.column(align=True)
         col.prop(bakeprops, "visual_keying")
         col.prop(bakeprops, "only_selected_bones")
-        
-        # Cleanup Options subsection
+
         box.label(text="Cleanup Options:")
         col = box.column(align=True)
         col.prop(bakeprops, "clear_constraints")
         col.prop(bakeprops, "clear_parents")
         col.prop(bakeprops, "overwrite_current_action")
 
+class AH_PT_AnimToolsHelp(bpy.types.Panel):
+    bl_label = "Help"
+    bl_idname = "AH_PT_AnimToolsHelp"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'AH Helper'
+    bl_parent_id = "AH_PT_AnimTools"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        box = layout.box()
+        box.label(text="Tips:")
+        col = box.column(align=True)
+        col.label(text="- Use Smart Bake for auto frame range")
+        col.label(text="- Cleanup removes constraints after baking")
+        col.label(text="- Change tab name in add-on prefs")
+
     def draw_header(self, context):
         """Draw panel header with icon"""
         layout = self.layout
         layout.label(icon='ARMATURE_DATA')
+
+

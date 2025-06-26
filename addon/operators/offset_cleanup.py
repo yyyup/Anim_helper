@@ -5,6 +5,7 @@ class AH_offset_cleanup(bpy.types.Operator):
     """Clean up manipulator empty system by removing empties and constraint"""
     bl_idname = "object.cleanup_manipulator"
     bl_label = "Cleanup Manipulator"
+    bl_description = "Remove helper empties and related constraints"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod

@@ -5,6 +5,7 @@ A Blender animation helper addon that provides a collection of tools to streamli
 ## Features
 
 ### Space Switching Tools
+The main panel now groups its sections into collapsible subpanels so you can hide tools you use less often.
 - **Knot**: Creates an empty object to control a pose bone or object with constraints
 - **Shoulder Lock**: Creates rotation-locked controls for shoulder bones in FK chains
 - **Copy Transforms**: Creates empties that copy transforms from bones for advanced animation control
@@ -38,7 +39,7 @@ A Blender animation helper addon that provides a collection of tools to streamli
 
 ## Usage
 
-After installation, the tools can be found in the 3D View sidebar under the "AH Helper" tab.
+After installation, the tools appear in the 3D View sidebar. The tab label can be changed from **Add-on Preferences → Tab Name** (defaults to "AH Helper").
 
 ### Animation Workflow Tips
 

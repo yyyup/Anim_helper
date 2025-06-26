@@ -5,6 +5,7 @@ class AH_offset(bpy.types.Operator):
     """Create manipulator empty system for controlling animated objects"""
     bl_idname = "object.setup_manipulator"
     bl_label = "Setup Manipulator"
+    bl_description = "Create an empty at the cursor and parent it to the active object"
     bl_options = {'REGISTER', 'UNDO'}
 
 

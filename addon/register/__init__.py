@@ -1,5 +1,3 @@
-"""Addon registration utilities."""
-
 from importlib import import_module
 
 
