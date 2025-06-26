@@ -14,6 +14,10 @@ def register_addon():
     from ..operators import register_operators
     register_operators()
 
+    # Register addon preferences
+    from ..preferences import register_preferences
+    register_preferences()
+
     # Register UI panels
     from ..ui import register_panels
     register_panels()
@@ -23,6 +27,10 @@ def unregister_addon():
     # Unregister UI panels first
     from ..ui import unregister_panels
     unregister_panels()
+
+    # Unregister addon preferences
+    from ..preferences import unregister_preferences
+    unregister_preferences()
 
     # Unregister operators
     from ..operators import unregister_operators
@@ -35,3 +43,4 @@ def unregister_addon():
     # Unregister icons last
     from ..icons import unregister_icons
     unregister_icons()
+
