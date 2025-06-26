@@ -11,23 +11,17 @@ property_classes = (
     AH_ActionProperties,
 )
 
-# Scene property pointers {"attribute_name": PropertyGroup}
-property_pointers = {
-    "bprops": AH_BakeProperties,
-    "fprops": AH_FacialProperties,
-    "Dprops": AH_ActionProperties,
-}
-
 def register_properties():
     """Register all property groups"""
     from bpy.utils import register_class
-
+    
     for cls in property_classes:
         register_class(cls)
-
+    
     # Register property pointers
-    for attr, prop_type in property_pointers.items():
-        setattr(bpy.types.Scene, attr, bpy.props.PointerProperty(type=prop_type))
+    bpy.types.Scene.bprops = bpy.props.PointerProperty(type=AH_BakeProperties)
+    bpy.types.Scene.fprops = bpy.props.PointerProperty(type=AH_FacialProperties)
+    bpy.types.Scene.Dprops = bpy.props.PointerProperty(type=AH_ActionProperties)
     
     # Add Factor property for decimation
     bpy.types.Scene.Factor = bpy.props.FloatProperty(
@@ -42,8 +36,9 @@ def unregister_properties():
     """Unregister all property groups in reverse order"""
     # Unregister property pointers
     del bpy.types.Scene.Factor
-    for attr in property_pointers:
-        delattr(bpy.types.Scene, attr)
+    del bpy.types.Scene.Dprops
+    del bpy.types.Scene.fprops
+    del bpy.types.Scene.bprops
     
     # Unregister classes
     from bpy.utils import unregister_class
