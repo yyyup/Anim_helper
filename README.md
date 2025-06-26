@@ -39,7 +39,7 @@ The main panel now groups its sections into collapsible subpanels so you can hid
 
 ## Usage
 
-After installation, the tools appear in the 3D View sidebar. You can choose the name of the tab in the add-on preferences (default is "AH Helper").
+After installation, the tools appear in the 3D View sidebar. The tab label can be changed from **Add-on Preferences → Tab Name** (defaults to "AH Helper").
 
 ### Animation Workflow Tips
 

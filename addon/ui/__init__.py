@@ -28,9 +28,9 @@ classes = (
 def register_panels():
     """Register all panel classes"""
     from bpy.utils import register_class
+    update_panel_categories()
     for cls in classes:
         register_class(cls)
-    update_panel_categories()
 
 def unregister_panels():
     """Unregister all panel classes"""
