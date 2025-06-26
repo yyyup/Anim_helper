@@ -29,6 +29,9 @@ A Blender animation helper addon that provides a collection of tools to streamli
 ### Action Management
 - **Delete Actions by Keyword**: Easily remove multiple actions based on a keyword
 
+### Pose Library
+- **Apply Poses Quickly**: Search and apply poses from the active object's pose library
+
 ## Installation
 
 1. Download the latest release (zip file)
