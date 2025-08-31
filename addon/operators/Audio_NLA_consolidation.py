@@ -1,10 +1,10 @@
 import bpy
 
 class AH_ConsolidateAudioNLA(bpy.types.Operator):
-    """Consolidate NLA strips to single track and align to audio order"""
+    """Consolidate NLA strips to single track and align to audio order or even spacing"""
     bl_idname = "anim.consolidate_audio_nla"
     bl_label = "Consolidate Audio-NLA to Single Track"
-    bl_description = "Move all NLA strips to one track and align to audio order with keyword filtering"
+    bl_description = "Move all NLA strips to one track and align to audio order or use even spacing"
     bl_options = {'REGISTER', 'UNDO'}
     
     # Audio filtering
@@ -42,11 +42,11 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
     alignment_mode: bpy.props.EnumProperty(
         name="Alignment Mode",
         items=[
-            ('MOVE_BOTH', "Move Both Audio & NLA", "Move both audio and NLA to create sequential timeline"),
+            ('EVEN_SPACING', "Even Spacing", "Space strips evenly without requiring audio"),
             ('MOVE_NLA_TO_AUDIO', "Move NLA to Audio", "Keep audio in place, move NLA strips to match audio timing"),
             ('MOVE_AUDIO_TO_NLA', "Move Audio to NLA", "Keep NLA in place, move audio to match NLA timing")
         ],
-        default='MOVE_NLA_TO_AUDIO'
+        default='EVEN_SPACING'
     )
     
     # Track naming
@@ -62,13 +62,13 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
         default="Main_Dialogue_Shapes"
     )
     
-    # Gap between strips
-    strip_gap: bpy.props.FloatProperty(
-        name="Gap Between Strips",
+    # Gap between strips - NOW USED FOR EVEN SPACING TOO
+    strip_spacing: bpy.props.IntProperty(
+        name="Strip Spacing",
         description="Frames between consecutive strips",
-        default=10.0,
-        min=0.0,
-        max=100.0
+        default=20,
+        min=1,
+        max=1000
     )
     
     # Processing options
@@ -85,10 +85,11 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
     )
     
     # Start time
-    start_frame: bpy.props.FloatProperty(
+    start_frame: bpy.props.IntProperty(
         name="Start Frame",
         description="Frame to start the consolidated sequence",
-        default=1.0
+        default=1,
+        min=1
     )
     
     # Cleanup options
@@ -109,11 +110,13 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
                 self.report({'ERROR'}, "NLA Character filter is required when using Character Filter mode")
                 return {'CANCELLED'}
             
-            # Get filtered audio strips
-            audio_strips = self.get_filtered_audio_strips(context)
-            if not audio_strips and self.use_audio_filter:
-                self.report({'ERROR'}, f"No audio strips found matching keyword: '{self.audio_keyword_filter}'")
-                return {'CANCELLED'}
+            # Get filtered audio strips (optional now)
+            audio_strips = []
+            if self.alignment_mode in ['MOVE_NLA_TO_AUDIO', 'MOVE_AUDIO_TO_NLA']:
+                audio_strips = self.get_filtered_audio_strips(context)
+                if not audio_strips and self.use_audio_filter:
+                    self.report({'ERROR'}, f"No audio strips found matching keyword: '{self.audio_keyword_filter}'")
+                    return {'CANCELLED'}
             
             # Get all NLA data organized by type
             nla_data = self.get_all_nla_data(context)
@@ -126,13 +129,18 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
             consolidated_count = self.apply_consolidation(context, nla_data, audio_strips)
             
             mode_desc = {
-                'MOVE_BOTH': 'sequential timeline',
+                'EVEN_SPACING': f'evenly spaced ({self.strip_spacing} frame gaps)',
                 'MOVE_NLA_TO_AUDIO': 'NLA aligned to audio positions', 
                 'MOVE_AUDIO_TO_NLA': 'audio aligned to NLA positions'
             }
             
-            filter_desc = f" (filtered by '{self.audio_keyword_filter}')" if self.use_audio_filter else ""
-            self.report({'INFO'}, f"Consolidated {consolidated_count} strips to {mode_desc[self.alignment_mode]} with {len(audio_strips)} audio clips{filter_desc}")
+            filter_desc = f" (filtered by '{self.audio_keyword_filter}')" if self.use_audio_filter and audio_strips else ""
+            audio_count = len(audio_strips) if audio_strips else 0
+            
+            if self.alignment_mode == 'EVEN_SPACING':
+                self.report({'INFO'}, f"Consolidated {consolidated_count} strips to {mode_desc[self.alignment_mode]}")
+            else:
+                self.report({'INFO'}, f"Consolidated {consolidated_count} strips to {mode_desc[self.alignment_mode]} with {audio_count} audio clips{filter_desc}")
             
             return {'FINISHED'}
             
@@ -282,7 +290,7 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
                     if obj_strips:
                         data['shape_objects'].append(obj)
         
-        # Sort all strips by current start frame
+        # Sort all strips by current start frame (preserves existing order)
         data['rig_strips'].sort(key=lambda s: s['strip'].frame_start)
         data['shapekey_strips'].sort(key=lambda s: s['strip'].frame_start)
         
@@ -332,8 +340,8 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
                 target_frame = audio_strips[i].frame_start
             elif self.alignment_mode == 'MOVE_AUDIO_TO_NLA':
                 target_frame = strip.frame_start
-            else:  # MOVE_BOTH
-                target_frame = self.start_frame + (i * (duration + self.strip_gap))
+            else:  # EVEN_SPACING (default)
+                target_frame = self.start_frame + (i * (duration + self.strip_spacing))
             
             # Create new strip in consolidated track
             new_strip = consolidated_track.strips.new(
@@ -353,12 +361,13 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
             # Remove original strip
             original_track.strips.remove(strip)
             
-            # Handle audio positioning
+            # Handle audio positioning (only for audio modes)
             if i < len(audio_strips):
                 if self.alignment_mode == 'MOVE_AUDIO_TO_NLA':
                     audio_strips[i].frame_start = target_frame
-                elif self.alignment_mode == 'MOVE_BOTH':
-                    audio_strips[i].frame_start = target_frame
+                elif self.alignment_mode == 'EVEN_SPACING':
+                    # Don't move audio in even spacing mode
+                    pass
             
             strips_moved += 1
         
@@ -391,8 +400,8 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
                 target_frame = audio_strips[i].frame_start
             elif self.alignment_mode == 'MOVE_AUDIO_TO_NLA':
                 target_frame = strip.frame_start
-            else:  # MOVE_BOTH
-                target_frame = self.start_frame + (i * (duration + self.strip_gap))
+            else:  # EVEN_SPACING (default)
+                target_frame = self.start_frame + (i * (duration + self.strip_spacing))
             
             # Create new strip in consolidated track
             new_strip = consolidated_track.strips.new(
@@ -446,17 +455,32 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         
-        # Audio filtering section
+        # Alignment mode selection (now primary)
         box = layout.box()
-        box.label(text="🎵 Audio Keyword Filtering", icon='SOUND')
-        box.prop(self, "use_audio_filter")
+        box.label(text="🎯 Alignment Mode", icon='DRIVER')
+        box.prop(self, "alignment_mode")
         
-        if self.use_audio_filter:
-            box.prop(self, "audio_keyword_filter")
-            col = box.column(align=True)
-            col.scale_y = 0.8
-            col.label(text="Examples: 'mark', 'bart', 'dialogue_01'")
-            col.label(text="Only audio containing this keyword will be used")
+        layout.separator()
+        
+        # Show different options based on alignment mode
+        if self.alignment_mode == 'EVEN_SPACING':
+            box = layout.box()
+            box.label(text="⏱️ Even Spacing Settings", icon='TIME')
+            box.prop(self, "start_frame")
+            box.prop(self, "strip_spacing")
+            
+        else:
+            # Audio filtering section (only for audio modes)
+            box = layout.box()
+            box.label(text="🎵 Audio Keyword Filtering", icon='SOUND')
+            box.prop(self, "use_audio_filter")
+            
+            if self.use_audio_filter:
+                box.prop(self, "audio_keyword_filter")
+                col = box.column(align=True)
+                col.scale_y = 0.8
+                col.label(text="Examples: 'mark', 'bart', 'dialogue_01'")
+                col.label(text="Only audio containing this keyword will be used")
         
         layout.separator()
         
@@ -467,13 +491,6 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
         
         if self.target_mode == 'CHARACTER_FILTER':
             box.prop(self, "character_filter")
-        
-        layout.separator()
-        
-        # Alignment behavior
-        box = layout.box()
-        box.label(text="🎯 Alignment Behavior", icon='DRIVER')
-        box.prop(self, "alignment_mode")
         
         layout.separator()
         
@@ -489,12 +506,6 @@ class AH_ConsolidateAudioNLA(bpy.types.Operator):
         layout.prop(self, "process_rig_strips")
         layout.prop(self, "process_shapekey_strips")
         layout.separator()
-        
-        # Timing (only for MOVE_BOTH mode)
-        if self.alignment_mode == 'MOVE_BOTH':
-            layout.prop(self, "start_frame")
-            layout.prop(self, "strip_gap")
-            layout.separator()
         
         # Cleanup
         layout.prop(self, "remove_original_tracks")

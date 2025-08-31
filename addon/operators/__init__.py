@@ -1,4 +1,5 @@
 import bpy
+from bpy.utils import register_class, unregister_class
 
 # Import all operator classes with standardized naming
 from .animation_bake import AH_AnimationBake
@@ -25,9 +26,10 @@ from.Offset import AH_offset
 from.offset_cleanup import AH_offset_cleanup
 from.Facial_auto_processor import AH_StartAutoProcessing, AH_StopAutoProcessing, AH_AutoFacialProcessor, AH_ClearProcessedActions, AH_ToggleAutoCleanup, AH_SetLanguageSuffix
 from.BakeToBones import AH_BakeToBones
-from.NLA_transfer import AH_TransferNLAStrips, AH_TransferShapeKeyNLA, AH_CleanupAppendedCharacter
+from.NLA_transfer import AH_TransferNLAStrips, AH_TransferShapeKeyNLA, AH_CleanupAppendedCharacter, AH_TransferShapeKeyNLA
 from.NLA_smoothing import AH_NLASmoothTransitions, AH_NLACleanTransitions
 from.Audio_NLA_consolidation import AH_ConsolidateAudioNLA
+from.nla_duplicate_track import AH_NLA_DuplicateTrack
 # Define all classes that should be registered
 classes = (
     AH_AnimationBake,
@@ -65,17 +67,40 @@ classes = (
     AH_NLASmoothTransitions,
     AH_NLACleanTransitions,
     AH_ConsolidateAudioNLA,
-    
+    AH_NLA_DuplicateTrack,
 )
 
-def register_operators():
-    """Register all operator classes"""
-    from bpy.utils import register_class
-    for cls in classes:
+def _safe_register(cls):
+    try:
+        register_class(cls)
+    except ValueError:
+        # stale or duplicate class object: clean and retry
+        try:
+            unregister_class(cls)
+        except Exception:
+            pass
         register_class(cls)
 
-def unregister_operators():
-    """Unregister all operator classes"""
-    from bpy.utils import unregister_class
-    for cls in reversed(classes):
+def _safe_unregister(cls):
+    try:
         unregister_class(cls)
+    except Exception:
+        pass
+
+__OPS_REGISTERED = False
+
+def register_operators():
+    global __OPS_REGISTERED
+    if __OPS_REGISTERED:
+        return
+    for cls in classes:
+        _safe_register(cls)
+    __OPS_REGISTERED = True
+
+def unregister_operators():
+    global __OPS_REGISTERED
+    if not __OPS_REGISTERED:
+        return
+    for cls in reversed(classes):
+        _safe_unregister(cls)
+    __OPS_REGISTERED = False

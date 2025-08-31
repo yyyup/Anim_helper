@@ -1,47 +1,59 @@
 import bpy
-
+from bpy.utils import register_class, unregister_class
 from .bake_properties import AH_BakeProperties
 from .facial_properties import AH_FacialProperties
 from .action_properties import AH_ActionProperties
+from .ah_nla_props import AH_NLAProperties   # <-- fixed spacing
+from bpy.props import PointerProperty
 
-# List of all property groups to register
 property_classes = (
     AH_BakeProperties,
     AH_FacialProperties,
     AH_ActionProperties,
+    AH_NLAProperties,
 )
 
-def register_properties():
-    """Register all property groups"""
-    from bpy.utils import register_class
-    
-    for cls in property_classes:
+# host → [(attr_name, PropertyGroup)]
+_POINTERS = {
+    bpy.types.Scene: [
+        ("bprops", AH_BakeProperties),
+        ("fprops", AH_FacialProperties),
+        ("Dprops", AH_ActionProperties),
+        ("Factor", AH_ActionProperties),   # if you really want both names
+        ("ah_nla", AH_NLAProperties),      
+    ]
+}
+
+def _safe_register_class(cls):
+    try:
         register_class(cls)
-    
-    # Register property pointers
-    bpy.types.Scene.bprops = bpy.props.PointerProperty(type=AH_BakeProperties)
-    bpy.types.Scene.fprops = bpy.props.PointerProperty(type=AH_FacialProperties)
-    bpy.types.Scene.Dprops = bpy.props.PointerProperty(type=AH_ActionProperties)
-    
-    # Add Factor property for decimation
-    bpy.types.Scene.Factor = bpy.props.FloatProperty(
-        name="Decimate Factor", 
-        default=0.75, 
-        min=0.1, 
-        max=1.0,
-        description="Amount of keyframes to keep (0.75 = keep 75%)"
-    )
+    except ValueError:
+        try: unregister_class(cls)
+        except Exception: pass
+        register_class(cls)
+
+def _safe_unregister_class(cls):
+    try:
+        unregister_class(cls)
+    except Exception:
+        pass
+
+def register_properties():
+    # 1) classes first
+    for cls in property_classes:
+        _safe_register_class(cls)
+    # 2) pointers after classes
+    for host, pairs in _POINTERS.items():
+        for attr, pg in pairs:
+            if not hasattr(host, attr):
+                setattr(host, attr, PointerProperty(type=pg))
 
 def unregister_properties():
-    """Unregister all property groups in reverse order"""
-    # Unregister property pointers
-    del bpy.types.Scene.Factor
-    del bpy.types.Scene.Dprops
-    del bpy.types.Scene.fprops
-    del bpy.types.Scene.bprops
-    
-    # Unregister classes
-    from bpy.utils import unregister_class
-    
+    # 1) remove pointers first
+    for host, pairs in _POINTERS.items():
+        for attr, _ in reversed(pairs):
+            if hasattr(host, attr):
+                delattr(host, attr)
+    # 2) classes after pointers
     for cls in reversed(property_classes):
-        unregister_class(cls)
+        _safe_unregister_class(cls)

@@ -14,20 +14,25 @@ def register_addon():
     from ..operators import register_operators
     register_operators()
 
-    # Register addon preferences
     from ..preferences import register_preferences
     register_preferences()
 
     # Register UI panels
     from ..ui import register_panels
     register_panels()
+    
+    # Register addon preferences
+
    
 def unregister_addon():
     """Unregister all components of the addon in reverse order"""
+    
+
+    
     # Unregister UI panels first
     from ..ui import unregister_panels
     unregister_panels()
-
+    
     # Unregister addon preferences
     from ..preferences import unregister_preferences
     unregister_preferences()

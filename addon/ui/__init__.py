@@ -9,7 +9,7 @@ from.panel_nla_transfer import AH_NLATransferPanel
 from.panel_nla_smoothing import AH_NLASmoothingPanel
 from .panel_audio_nla_consolidation import AH_AudioNLAConsolidationPanel
 from ..preferences import update_panel_categories
-
+from .ah_nla_panel import AH_PT_NLA_AnimHelper
 # Add panels to classes array
 classes = (
     AH_MaterialTools,
@@ -23,6 +23,7 @@ classes = (
     AH_NLATransferPanel,
     AH_NLASmoothingPanel,
     AH_AudioNLAConsolidationPanel,
+    AH_PT_NLA_AnimHelper,
 )
 
 def register_panels():
